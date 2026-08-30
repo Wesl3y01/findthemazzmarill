@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="Giordana Martucci" />
+    <title>Relazione di Computer Graphics Modulo 2</title>
+
+    <style>
+        body {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 12pt;
+            line-height: 1.75;
+            color: #111;
+            background: #fff;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 3rem 2rem 5rem;
+        }
+        header {
+            border-bottom: 1px solid #aaa;
+            padding-bottom: 2rem;
+            margin-bottom: 2rem;
+        }
+        header h1 {
+            font-size: 22pt;
+            margin: 0 0 0.3rem;
+        }
+        header p.subtitle {
+            font-size: 12pt;
+            margin: 0 0 1.5rem;
+        }
+
+        nav {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #aaa;
+        }
+
+        a {
+            color: #111;
+            text-decoration: none;
+        }
+        a:hover { text-decoration: underline; }
+
+        section {
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #ddd;
+        }
+        section:last-of-type { border-bottom: none; }
+        h2 {
+            font-size: 14pt;
+            margin: 0 0 1rem;
+        }
+        h3 {
+            font-size: 12pt;
+            font-style: italic;
+            margin: 1.75rem 0 0.5rem;
+            font-weight: bold;
+        }
+
+        p { margin: 0 0 0.85rem; }
+        p:last-child { margin-bottom: 0; }
+
+        code {
+            font-family: "Courier New", monospace;
+            font-size: 10pt;
+            background: #f4f4f4;
+            color: #1c612d;
+            padding: 0.1rem 0.3rem;
+        }
+
+        pre {
+            font-family: "Courier New", monospace;
+            font-size: 9.5pt;
+            background: #f4f4f4;
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+        
+        .reference {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <header id="top">
+        <h1>Report Computer Graphics Modulo 2</h1>
+        <p class="subtitle">Kyoto Bus Stop — Scena 3D interattiva sviluppata in Three.js</p>
+
+            <div><span>Autrice:</span> Giordana Martucci</div>
+            <div><span>Matricola:</span> 0001189559</div>
+            <div><span>Docente:</span> Prof. Serena Morigi</div>
+    </header>
+
+    <nav id="indice">
+        <h2>Indice</h2>
+        <ol>
+            <li><a href="#introduzione">Introduzione</a></li>
+            <li><a href="#gltf">Caricamento GLTF e Asset</a></li>
+            <li><a href="#autobus">Movimento dell'Autobus e Animazioni</a></li>
+            <li><a href="#interazione">Interazione Utente</a></li>
+            <li><a href="#illuminazione">Illuminazione e Ottimizzazione</a></li>
+        </ol>
+    </nav>
+
+    <section id="introduzione">
+        <h2>1. Introduzione</h2>
+
+        <p>
+            L'applicazione interattiva "Kyoto Bus Stop", interamente sviluppata in Three.js, prende ispirazione dall'estetica
+            tradizionale dei tramonti giapponesi in stile anime per creare una piccola esperienza visiva e interattiva. 
+            
+            <img src="images/screen_complete.png" style="max-width: 100%; margin-top: 0.5rem;" />
+        </p>
+
+        <p>
+            La scena rappresenta una fermata dell'autobus lungo una strada giapponese al tramonto, arricchita da elementi compositivi 
+            dettagliati come distributori automatici, panchine, bonsai, edifici tradizionali e un gatto adagiato sul marciapiede. 
+            L'utente può interagire direttamente con la scena richiamando un autobus di linea tramite un pannello di benvenuto dedicato, 
+            oppure interagendo con il gatto per attivare un sistema particellare procedurale di cuori 3D.
+
+            <img src="images/screen_bus.png" style="max-width: 100%; margin-top: 0.5rem;" />
+        </p>
+
+        <p> 
+            Il progetto è stato composto ed ottimizzato interamente in Blender, assemblando l'ambiente urbano, i lampioni, l'autobus e i modelli animati.
+            L'illuminazione complessiva è modellata da una luce ambientale calda e da una luce direzionale inclinata che genera ombre morbide 
+            (<em>PCF Soft Shadow Map</em>). Ciascun lampione stradale è stato cablato via codice integrando sorgenti puntiformi calde, 
+            la cui gestione in tempo reale è demandata a una GUI interattiva per manipolare l'atmosfera luminosa complessiva.
+        </p>
+    </section>
+
+    <section id="gltf">
+        <h2>2. Caricamento GLTF e Asset</h2>
+        <p>
+            L'intera ambientazione viene caricata da un unico file compresso in formato GLTF/GLB mediante l'utilizzo del <code>GLTFLoader</code>. 
+            Durante la fase di parsing asincrono della gerarchia poligonale, vengono identificati, estratti e memorizzati i principali componenti interattivi: 
+        </p>
+            <ul>
+                <li> <strong>Autobus:</strong> modello dinamico vincolato alla macchina a stati di movimento, inizialmente invisibile;</li>
+                <li> <strong>Gatto:</strong> mesh poligonale interattiva associata al raycaster e dotata di un'animazione nativa;</li>
+                <li> <strong>SM_StreetLight:</strong> mesh dei lampioni stradali deputate a ospitare i punti luce locali;</li>
+                <li> <strong>Materiali e roughness map:</strong> superfici filtrate a runtime per garantire una risposta opaca e non speculare della strada.</li>
+            </ul>
+        <p>
+            La centratura dello scenario rispetto all'origine del mondo viene calcolata dinamicamente estraendo il bounding box complessivo mediante <code>Box3</code>, 
+            sottraendo poi il centro geometrico ottenuto dalla posizione della mesh radice. Questo accorgimento evita disallineamenti della telecamera e ottimizza il punto di rotazione degli <code>OrbitControls</code>.
+        </p>
+
+        <h3>Environment e Sfondo Equirettangolare</h3>
+        <p>
+            Il cielo al tramonto non è modellato tramite geometria tridimensionale (come una tradizionale <em>skybox</em> poligonale), ma è implementato a livello di scena globale caricando una texture 2D esterna. 
+            Questa immagine viene avvolta matematicamente attorno all'osservatore impostando la proprietà di interpolazione su <code>THREE.EquirectangularReflectionMapping</code> e assegnandola direttamente a <code>scene.background</code>. 
+            Questo approccio ottimizza le prestazioni di rendering e garantisce un orizzonte continuo a 360 gradi, mantenendo la coerenza visiva forzando la texture nello spazio colore <code>SRGBColorSpace</code>.
+        </p>
+   </section>
+
+    <section id="autobus">
+        <h2>3. Movimento dell'Autobus e Animazioni</h2>
+        
+        <h3>Implementazione del Movimento</h3>
+
+        <p>
+            Il comportamento cinematica dell'autobus è governato da una struttura di stato denominata <code>autobusState</code>, la quale incapsula i parametri di velocità, 
+            visibilità e le coordinate chiave sull'asse X (posizione iniziale di immissione, punto di fermata e coordinate di uscita). 
+            La logica di traslazione è gestita nella funzione di aggiornamento frame-by-frame <code>updateAutobus</code>:
+        </p>
+        <ol>
+            <li><strong>Fase di Approccio (Stato 1):</strong> l'autobus avanza a velocità costante verso lo zero geometrico della fermata.</li>
+            <li><strong>Fase di Sosta (Stato 0):</strong> raggiunto il punto di fermata, il moto si azzera e viene avviato un timer di sosta calcolato sul tempo assoluto della scena.</li>
+            <li><strong>Fase di Allontanamento (Stato 2):</strong> trascorsi i secondi previsti di sosta, l'autobus riprende la marcia fino a superare i confini visibili del diorama, dove viene nascosto.</li>
+        </ol>
+
+        <p>
+            La gestione del tempo e lo spostamento fluido dei modelli nello spazio tridimensionale si basano sul calcolo del delta temporale ricavato da <code>THREE.Clock</code>, 
+            garantendo una velocità di marcia indipendente dal frame rate del browser.
+        </p>
+
+        <pre>
+if (autobusState.direzione === 1) {
+    if (bus.position.x > autobusState.posFermataX) {
+        bus.position.x -= autobusState.speed * delta;
+    } else {
+        bus.position.x = autobusState.posFermataX;
+        autobusState.direzione = 0;
+        autobusState.timerFermata = t + autobusState.durataSosta;
+    }
+}</pre>
+    
+        <h3>Animazione del Gatto</h3>
+        <p>
+            Il modello del gatto include un'animazione scheletrica nativa esportata da Blender. Al caricamento del file, il codice instanzia un 
+            <code>AnimationMixer</code> collegato alla mesh dell'animale. La "traccia" viene estratta dall'array delle clip, configurata in riproduzione continua 
+            (<code>THREE.LoopRepeat</code>) e aggiornata costantemente nel loop di rendering principale.
+        </p>
+        <pre>
+gattoMixer = new THREE.AnimationMixer(gattoMesh);
+const action = gltf.animations[0];
+const clipAction = gattoMixer.clipAction(action);
+clipAction.setLoop(THREE.LoopRepeat, Infinity);
+clipAction.play();
+</pre>
+    </section>
+
+    <section id="interazione">
+        <h2>4. Interazione Utente</h2>
+
+        <p>
+            L'interazione con la scena è strutturata su due livelli: l'utilizzo di un'interfaccia grafica bidimensionale in overlay per i comandi globali e l'interazione 
+            diretta nello spazio 3D tramite algoritmi di raycasting per intercettare i click sui modelli poligonali.
+        </p>
+
+        <p>
+            Il pannello informativo di benvenuto è generato dinamicamente a runtime tramite la funzione <code>createWelcomePanel</code>, che inietta codice HTML/CSS 
+            sfruttando le proprietà di sfocatura dello sfondo (<code>backdrop-filter: blur</code>). All'interno di questo pannello è integrato un pulsante custom 
+            che triggera direttamente la funzione <code>chiamaAutobus()</code>, escludendo la necessità di appoggiarsi a fogli di stile esterni.
+        </p>
+
+        <p>
+            L'interazione con il gatto è gestita tramite un event listener globale in ascolto sull'evento <code>pointerdown</code>, 
+            garantendo così compatibilità sia con il mouse che con dispositivi touch. Al momento dell'input, la funzione di callback dedicata 
+            converte le coordinate bidimensionali dello schermo in coordinate normalizzate del dispositivo (NDC, range <span class="math">[-1, 1]</span>). 
+            Il vettore così ottenuto viene impiegato per orientare un <code>THREE.Raycaster</code> a partire dalla telecamera corrente per 
+            verificare l'intersezione con la geometria del modello.
+        </p>
+        <pre>
+function onPointerDown(event) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    if (gattoMesh) {
+        const intersects = raycaster.intersectObject(gattoMesh, true);
+        if (intersects.length > 0) {
+            coccolaGatto();
+        }
+    }
+}
+
+window.addEventListener('pointerdown', onPointerDown);</pre>
+    </section>
+
+    <section id="illuminazione">
+        <h2>5. Illuminazione e Ottimizzazione</h2>
+
+        <p>La luce ricopre un ruolo fondamentale nel determinare il look cinematografico e anime della scena, combinando sorgenti globali e locali:</p>
+
+        <ol>
+            <li><strong>Luce Direzionale:</strong> agisce come sorgente luminosa primaria per simulare un sole al tramonto. Essendo posizionata bassa all'orizzonte, proietta ombre lunghe e morbide (tramite algoritmo PCF) che enfatizzano la profondità e i volumi degli edifici.</li>
+            <li><strong>Luce Ambientale:</strong> diffonde una leggera tonalità calda e rosata su tutta l'ambientazione. Il suo scopo è ammorbidire i contrasti e illuminare delicatamente le zone d'ombra proiettate dai palazzi, che altrimenti risulterebbero innaturalmente buie.</li>
+            <li><strong>Luci Puntiformi:</strong> fungono da illuminazione artificiale locale. Sono posizionate all'interno delle lanterne di ciascun lampione lungo la strada e irradiano una luce calda in un raggio circoscritto.</li>
+        </ol>   
+
+        <p> 
+            L'intera atmosfera luminosa è gestibile dinamicamente dall'utente tramite un pannello di controllo dell'interfaccia. Tramite questi comandi è possibile variare l'intensità del sole, modificarne la tinta in tempo reale e interagire con un interruttore generale che accende o spegne l'illuminazione di tutti i lampioni stradali contemporaneamente.
+        </p>
+
+        <h3>Sistema Particellare Procedurale</h3>
+        <p>
+            L'interazione con il gatto genera un sistema di particelle estruse tridimensionalmente. La geometria a forma di cuore viene tracciata nel piano 2D 
+            mediante curve di Bézier cubiche (<code>bezierCurveTo</code>) e successivamente convertita in solido geometrico tramite <code>ExtrudeGeometry</code>. 
+            Ogni particella subisce un'integrazione vettoriale di moto ad ogni frame e si riduce progressivamente in scala in base al coefficiente di vita residua 
+            (<code>userData.life</code>) prima di essere de-allocata per preservare la memoria.
+        </p>
+
+        <h3>Monitoraggio delle Prestazioni</h3>
+        <p>
+            Al fine di verificare la fluidità della scena, è stato integrato il modulo <code>Stats.js</code>, riposizionato in basso a destra. 
+            Per ridurne l'impatto visivo e non spezzare l'immersione nel diorama, il pannello è stato personalizzato tramite regole CSS inline: 
+            limitandone l'altezza (<code>height: '16px'</code>) e nascondendone l'eccedenza (<code>overflow: 'hidden'</code>), 
+            è stata mascherata la componente del grafico a barre, mantenendo visibile ed essenziale esclusivamente il contatore numerico dei frame per secondo.
+        </p>
+    </section>
+
+</body>
+
+</html>

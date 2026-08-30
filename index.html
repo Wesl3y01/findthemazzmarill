@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Il Borgo del Mazzmarill</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; /* Un cielo azzurro di base */ }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+    <link rel="stylesheet" href="index.css">
+    
+    <script src="lib/webgl-utils.js"></script>
+    <script src="lib/m4.js"></script>
+    <script src="lib/glm_utils.js"></script>
+    <script src="lib/mesh_utils.js"></script>
+    <script src="lib/dat.gui.js"></script>
+    
+    <script src="js/utilities.js"></script>
+
+    <script id="vs" type="x-shader/x-vertex">#version 300 es
+        layout(location = 0) in vec3 a_position;
+        layout(location = 1) in vec2 a_uv;
+        layout(location = 2) in vec4 a_instanceMatrix0;
+        layout(location = 3) in vec4 a_instanceMatrix1;
+        layout(location = 4) in vec4 a_instanceMatrix2;
+        layout(location = 5) in vec4 a_instanceMatrix3;
+        layout(location = 6) in vec3 a_normal;
+
+        uniform mat4 u_viewProjection;
+
+        out vec2 v_uv;
+        out vec3 v_normal;
+        out vec3 v_position; // NUOVO: Passa la posizione 3D reale
+
+        void main() {
+            mat4 instanceMatrix = mat4(a_instanceMatrix0, a_instanceMatrix1, a_instanceMatrix2, a_instanceMatrix3);
+            
+            // Calcoliamo la posizione del vertice nel mondo
+            vec4 worldPos = instanceMatrix * vec4(a_position, 1.0);
+            
+            gl_Position = u_viewProjection * worldPos;
+            v_uv = a_uv;
+            
+            mat3 normalMatrix = mat3(instanceMatrix); 
+            v_normal = normalize(normalMatrix * a_normal);
+            
+            v_position = vec3(worldPos); // Invio al Fragment
+        }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">#version 300 es
+        precision highp float;
+
+        in vec2 v_uv;
+        in vec3 v_normal; 
+        in vec3 v_position;
+        
+        uniform sampler2D u_texture;
+        uniform bool u_useTexture;
+        uniform vec3 u_color;
+        
+        uniform vec3 u_sunDirection; 
+        uniform vec3 u_sunColor;
+        
+        // NUOVO: Definiamo il numero esatto di lampioni
+        #define NUM_LAMPS 14
+        
+        // NUOVO: Array di coordinate
+        uniform vec3 u_lampPositions[NUM_LAMPS]; 
+        
+        uniform vec3 u_lampColor; 
+        uniform float u_lampIntensity; 
+
+        out vec4 outColor;
+
+        void main() {
+            vec4 baseColor = u_useTexture ? texture(u_texture, v_uv) : vec4(u_color, 1.0);
+            vec3 normal = normalize(v_normal);
+            
+            // 1. Luce del Sole
+            vec3 sunDir = normalize(u_sunDirection);
+            float sunImpact = max(dot(normal, sunDir), 0.0);
+            vec3 sunLight = u_sunColor * sunImpact;
+            
+            // 2. Luce dei Lampioni (Ciclo Somma)
+            vec3 totalLampLight = vec3(0.0);
+            
+            for(int i = 0; i < NUM_LAMPS; i++) {
+                vec3 lightVector = u_lampPositions[i] - v_position;
+                float distance = length(lightVector);
+                vec3 lampDir = normalize(lightVector);
+                
+                float attenuation = 1.0 / (1.0 + 0.2 * distance + 0.05 * (distance * distance));
+                float lampImpact = max(dot(normal, lampDir), 0.0);
+                
+                // Sommiamo la luce di questo lampione al totale
+                totalLampLight += u_lampColor * lampImpact * attenuation * u_lampIntensity;
+            }
+            
+            // 3. Somma totale (Sole + Tutti i lampioni + Ambient)
+            float ambientLight = 0.15; 
+            vec3 finalLight = vec3(ambientLight) + sunLight + totalLampLight;
+            
+            outColor = vec4(baseColor.rgb * finalLight, baseColor.a);
+        }
+    </script>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <!-- Schermata di Caricamento -->
+    <div id="loading-screen">
+    <h2>Caricamento del Borgo...</h2>
+    </div>
+
+    <!-- Pop-up di Benvenuto -->
+    <div id="welcome-popup" style="display: none;">
+    <div class="popup-content">
+        <h2>Benvenuto nel Borgo!</h2>
+        <p>Muoviti tenendo premuto il mouse e usa la rotellina per lo zoom.</p>
+        <p>Il tuo obiettivo: cerca il <b>Mazzmarill</b> che si nasconde tra le case e i chioschi. Cliccalo per catturarlo! Inoltre, prova a interagire con il bardo in piazza per un po' di atmosfera.</p>
+        <button id="btn-start">Inizia a Esplorare</button>
+    </div>
+    </div>
+
+    <!-- Interfaccia di Gioco (HUD) -->
+    <div id="game-hud" style="display: none;">
+    <div id="hud-top-left">
+        <div class="score-box">Mazzmarill Trovati: <span id="score-val">0</span></div>
+        <button id="btn-music" class="hud-btn">Musica Bardo: OFF</button>
+        <button id="btn-camera" class="hud-btn">Camera: ORBITALE</button>
+    </div>
+    <div id="hud-top-right">
+        <button id="btn-fps" class="hud-btn">Mostra FPS</button>
+        <div id="fps-display" style="display: none;"><span id="fps-val">0</span> FPS</div>
+    </div>
+    </div>
+    <script src="js/app.js"></script>
+</body>
+</html>

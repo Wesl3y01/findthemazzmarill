@@ -1,0 +1,41 @@
+#loading-screen, #welcome-popup {
+    position: absolute;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    display: flex;
+    align-items: center; justify-content: center;
+    z-index: 20;
+    font-family: sans-serif;
+}
+.popup-content {
+    background: #2c2c2c;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+}
+.popup-content button {
+    margin-top: 20px; padding: 10px 20px;
+    background: #e67e22; border: none; color: white;
+    cursor: pointer; font-size: 16px; border-radius: 5px;
+}
+#game-hud {
+    position: absolute;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none; /* Ignora i clic sul contenitore vuoto per non bloccare il canvas */
+    z-index: 10;
+    font-family: sans-serif; color: white;
+}
+#hud-top-left { position: absolute; top: 15px; left: 15px; pointer-events: auto; }
+#hud-top-right { position: absolute; top: 15px; right: 15px; pointer-events: auto; text-align: right; }
+
+.score-box, #fps-display {
+    background: rgba(0, 0, 0, 0.6); padding: 8px 12px;
+    border-radius: 5px; margin-bottom: 10px; font-weight: bold;
+}
+.hud-btn {
+    background: #444; color: white; border: 1px solid #777;
+    padding: 8px 12px; border-radius: 5px; cursor: pointer;
+}
+#btn-music:hover, #btn-fps:hover { background: #666; }
