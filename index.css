@@ -39,3 +39,7 @@
     padding: 8px 12px; border-radius: 5px; cursor: pointer;
 }
 #btn-music:hover, #btn-fps:hover { background: #666; }
+
+canvas {
+    touch-action: none; 
+}

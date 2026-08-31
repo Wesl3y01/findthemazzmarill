@@ -24,7 +24,7 @@ const nascondigli = [
 
 // --- MOTORE TELECAMERA IBRIDO ---
 let cameraMode = 'ORBITAL'; // Può essere 'ORBITAL' o 'FREE'
-let cameraTarget = [0, 0, 0]; // Reso dinamico per la lookAt
+let cameraTarget = [0, 0, 0]; 
 
 // Parametri Orbitale
 let orbitYaw = 0.0;
@@ -36,8 +36,8 @@ const orbitSensitivity = 0.01;
 // Parametri Volo Libero (WASD)
 let freeYaw = 0.0;
 let freePitch = 0.0;
-let cameraSpeed = 0.3;
-const freeSensitivity = 0.005;
+let cameraSpeed = 0.2;
+const freeSensitivity = 0.003;
 let keys = { w: false, a: false, s: false, d: false };
 
 // Input Condivisi
@@ -48,11 +48,12 @@ let lastMouseY = 0;
 
 let cameraPosition = [0, 5, 20]; 
 let upVector = [0, 1, 0];
+let initialPinchDistance = -1;
 
 // --- VARIABILI BARDO E NOTE ---
 let bardRenderables = [];
 let bardMatrix = m4.identity();
-// Coordinate fisse del bardo (modifica a piacimento per posizionarlo)
+// Coordinate fisse del bardo 
 const bardPosition = [5.8, 0.0, -4.6]; 
 
 let noteRenderables = [];
@@ -61,9 +62,8 @@ let noteMatricesArray = new Float32Array(NUM_NOTES * 16);
 let noteAnimTimer = 0.0;
 
 let isMusicPlaying = false;
-// Assicurati che il percorso del file audio coincida
 const medievalMusic = new Audio('assets/audio/lute.mp3'); 
-medievalMusic.loop = true; // Riproduzione in loop continuo
+medievalMusic.loop = true; 
 // ------------------------------
 
 // --- VARIABILI INTERFACCIA E STATISTICHE ---
@@ -98,22 +98,20 @@ async function main() {
     }
 
     gl.enable(gl.DEPTH_TEST);
-    //gl.enable(gl.CULL_FACE); 
+    gl.enable(gl.CULL_FACE); 
 
     program = webglUtils.createProgramFromScripts(gl, ["vs", "fs"]);
 
     console.log("Inizio caricamento borgo...");
     
-    // FASE 1: Legge il file di testo e scarica le immagini
     const borgoData = await loadOBJModel(gl, 'assets/models/village.obj?v=1', { textureBaseDir: 'assets/textures/' });
     
-    // Indichiamo a quali 'location' del Vertex Shader mandare i dati
     const attribLocations = {
         position: 0,
         uv: 1,
-        normal: 6, // Non ci servono per ora (luci spente)
+        normal: 6, 
         tangent: -1, 
-        instanceMatrix: 2 // Parte dallo slot 2
+        instanceMatrix: 2 
     };
 
     // Creiamo un array con una singola matrice d'identità (vogliamo 1 solo borgo al centro)
@@ -145,7 +143,7 @@ async function main() {
     // --- STATO DEI MAZZMARILL ---
     mazzmarilli = [
         {
-            basePosition: [-5.0, 0.0, -1.4], // Coordinate X, Y, Z (aggiorna la Y se sprofonda)
+            basePosition: [-5.0, 0.0, -1.4], 
             matrix: m4.identity(),         
             state: 'IDLE',                 // 'IDLE' (nascosto) o 'CAUGHT' (trovato)
             animTimer: 0.0                 // Contatore per i saltelli
@@ -173,13 +171,12 @@ async function main() {
     // 1. Caricamento Bardo (Singola istanza statica)
     const bardData = await loadOBJModel(gl, 'assets/models/bard.obj', { textureBaseDir: 'assets/textures/' });
     bardMatrix = m4.translation(bardPosition[0], bardPosition[1], bardPosition[2]);
-    // Opzionale: m4.yRotate(bardMatrix, Math.PI / 2) per girarlo verso il centro
     const builtBard = buildModel(gl, bardData, [bardMatrix], attribLocations);
     bardRenderables = builtBard.renderables;
 
     // 2. Caricamento Note (Multi-istanza dinamica)
     const noteData = await loadOBJModel(gl, 'assets/models/note.obj', { textureBaseDir: 'assets/textures/' });
-    // Dichiariamo le istanze iniziali, ma i valori reali li calcoleremo nel drawScene
+    // Dichiariamo le istanze iniziali
     let initialNoteInstances = Array(NUM_NOTES).fill(m4.identity());
     const builtNotes = buildModel(gl, noteData, initialNoteInstances, attribLocations);
     noteRenderables = builtNotes.renderables;
@@ -243,6 +240,67 @@ async function main() {
         if (orbitRadius < 3.0) orbitRadius = 3.0;
         if (orbitRadius > 40.0) orbitRadius = 40.0;
     }, { passive: false });
+
+    // --- GESTIONE TOUCH (Mobile) ---
+    gl.canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            // Un dito: rotazione visuale
+            isDragging = true;
+            lastMouseX = e.touches[0].clientX;
+            lastMouseY = e.touches[0].clientY;
+        } else if (e.touches.length === 2 && cameraMode === 'ORBITAL') {
+            // Due dita: calcolo distanza iniziale per lo zoom
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+        }
+    }, { passive: false });
+
+    gl.canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // impedisce alla pagina di scorrere
+        
+        if (e.touches.length === 1 && isDragging) {
+            // Trascinamento con un dito
+            let deltaX = e.touches[0].clientX - lastMouseX;
+            let deltaY = e.touches[0].clientY - lastMouseY;
+            lastMouseX = e.touches[0].clientX;
+            lastMouseY = e.touches[0].clientY;
+
+            if (cameraMode === 'ORBITAL') {
+                orbitYaw -= deltaX * orbitSensitivity;
+                orbitPitch += deltaY * orbitSensitivity;
+                const pitchLimit = Math.PI / 2 - 0.1;
+                if (orbitPitch > pitchLimit) orbitPitch = pitchLimit;
+                if (orbitPitch < 0.1) orbitPitch = 0.1;
+            } else {
+                freeYaw -= deltaX * freeSensitivity;
+                freePitch -= deltaY * freeSensitivity;
+                const limit = Math.PI / 2 - 0.01;
+                if (freePitch > limit) freePitch = limit;
+                if (freePitch < -limit) freePitch = -limit;
+            }
+        } else if (e.touches.length === 2 && cameraMode === 'ORBITAL') {
+            // Pinch-to-Zoom con due dita
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const currentDistance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (initialPinchDistance > 0) {
+                const pinchDelta = initialPinchDistance - currentDistance;
+                // Sensibilità dello zoom da mobile
+                orbitRadius += pinchDelta * 0.05; 
+                
+                if (orbitRadius < 3.0) orbitRadius = 3.0;
+                if (orbitRadius > 40.0) orbitRadius = 40.0;
+            }
+            initialPinchDistance = currentDistance;
+        }
+    }, { passive: false });
+
+    gl.canvas.addEventListener('touchend', () => {
+        isDragging = false;
+        initialPinchDistance = -1;
+    });
 
     // --- MOTORE DI RAYCASTING (Click del mouse) ---
     gl.canvas.addEventListener('mousedown', (e) => {
@@ -308,7 +366,6 @@ async function main() {
                         mazzmarillScore++;
                         document.getElementById('score-val').innerText = mazzmarillScore;
                        
-                        // Riproduci uno dei due suoni (50% probabilità)
                         let soundRandom = Math.random()
                         if (soundRandom < 0.3) {
                             ghigno1.currentTime = 0;
@@ -322,14 +379,13 @@ async function main() {
                         }
                         
                         console.log("Mazzmarill Trovato!");
-                        break; // Ne catturiamo uno alla volta
+                        break; 
                     }
                 }
             }
         }
 
         // --- HITBOX BARDO ---
-        // Alziamo il centro per mirare al busto
         const bardHitboxCenter = [bardPosition[0], bardPosition[1] + 1.0, bardPosition[2]];
         const bardVector = [
             bardHitboxCenter[0] - cameraPosition[0],
@@ -355,7 +411,6 @@ async function main() {
         }
     });
 
-    // Funzioni helper matematiche da aggiungere se non presenti in m4.js
     function dotProduct(v1, v2) { return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]; }
     function distance(p1, p2) { 
         return Math.sqrt(Math.pow(p1[0]-p2[0], 2) + Math.pow(p1[1]-p2[1], 2) + Math.pow(p1[2]-p2[2], 2)); 
@@ -402,7 +457,6 @@ function drawScene(time) {
         lastTime = time;
     }
     // -------------------
-    // Rallentiamo il tempo a 0.005 per goderci la transizione
     globalTime += 0.001; 
     const sunDirX = Math.cos(globalTime);
     const sunDirY = Math.sin(globalTime);
@@ -417,7 +471,8 @@ function drawScene(time) {
 
     // --- MOTORE DI INTERPOLAZIONE ---
     if (sunDirY > 0.2) { // Pieno Giorno
-        currentSky = skyDay; currentSun = sunDay;
+        currentSky = skyDay; 
+        currentSun = sunDay;
     } else if (sunDirY > 0.0) { // Tramonto (Giorno -> Arancio)
         let t = sunDirY / 0.2; // Valore tra 0 e 1
         for(let i=0; i<3; i++) {
