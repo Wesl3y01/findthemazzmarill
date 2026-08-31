@@ -174,7 +174,7 @@ async function main() {
     const builtBard = buildModel(gl, bardData, [bardMatrix], attribLocations);
     bardRenderables = builtBard.renderables;
 
-    // 2. Caricamento Note (Multi-istanza dinamica)
+    // 2. Caricamento Note 
     const noteData = await loadOBJModel(gl, 'assets/models/note.obj', { textureBaseDir: 'assets/textures/' });
     // Dichiariamo le istanze iniziali
     let initialNoteInstances = Array(NUM_NOTES).fill(m4.identity());
@@ -326,9 +326,9 @@ async function main() {
         let rayWorld = m4.transformVector(invView, eyeCoords);
         let rayDirection = m4.normalize([rayWorld[0], rayWorld[1], rayWorld[2]]);
 
-        // 3. Controllo Intersezione Sfera (Semplificato)
-        // Raggio d'azione del clic (essendo scalato al 40%, 1.0 unità dovrebbe bastare)
-        const hitRadius = 0.35; 
+        // 3. Controllo Intersezione Sfera 
+        // Raggio d'azione del clic 
+        const hitRadius = 0.5; 
 
         for (let i = 0; i < mazzmarilli.length; i++) {
             let mazz = mazzmarilli[i];
@@ -358,7 +358,6 @@ async function main() {
                     ];
                     
                     const distanceToCenter = distance(closestPoint, mazz.basePosition);
-                    // COLPITO!
                     if (distanceToCenter < hitRadius) {
                         mazz.state = 'CAUGHT';
                         mazz.animTimer = 0.0;
@@ -411,11 +410,6 @@ async function main() {
         }
     });
 
-    function dotProduct(v1, v2) { return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]; }
-    function distance(p1, p2) { 
-        return Math.sqrt(Math.pow(p1[0]-p2[0], 2) + Math.pow(p1[1]-p2[1], 2) + Math.pow(p1[2]-p2[2], 2)); 
-    }
-
     // --- SETUP UI DOM ---
     // Nascondi caricamento, mostra popup
     document.getElementById('loading-screen').style.display = 'none';
@@ -449,7 +443,7 @@ function drawScene(time) {
 
     // --- CALCOLO FPS ---
     frameCount++;
-    if (time - lastTime >= 1000) { // Aggiorna ogni secondo (1000 millisecondi)
+    if (time - lastTime >= 1000) { 
         if (fpsVisible) {
             document.getElementById('fps-val').innerText = frameCount;
         }
@@ -489,7 +483,6 @@ function drawScene(time) {
         currentSky = skyNight; currentSun = sunNight;
     }
 
-    // Applica il colore dinamico al cielo (sostituisce il vecchio azzurro fisso)
     gl.clearColor(currentSky[0], currentSky[1], currentSky[2], 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -536,8 +529,6 @@ function drawScene(time) {
     gl.uniformMatrix4fv(vpLocation, false, viewProjectionMatrix);
 
     // --- MOTORE DEI LAMPIONI ---
-    // Coordinate arbitrarie per iniziare (le aggiusteremo poi)
-    //const lampPosition = [2.2, 1.3, -3.0]; 
     const lampPositions = [
         2.2, 1.43, -3.0,    // Lampione 1
         15.7, 1.43, 2.83,   // Lampione 2
@@ -554,7 +545,7 @@ function drawScene(time) {
         2.19, 1.43, 4.4,   // Lampione 13
         -1.32, 1.43, 0.64   // Lampione 14
     ];
-    const lampColor = [1.0, 0.7, 0.2]; // Giallo caldo vintage
+    const lampColor = [1.0, 0.7, 0.2]; // Giallo caldo
     
     // Il lampione si accende quando il sole scende sotto quota 0.1
     let lampIntensity = 0.0;
@@ -563,7 +554,7 @@ function drawScene(time) {
         lampIntensity = Math.min(1.0, (0.1 - sunDirY) * 5.0); 
     }
 
-    // --- FUNZIONE DI RENDERING (Definita qui per accedere a tutte le variabili di luce) ---
+    // --- FUNZIONE DI RENDERING ---
     const drawObjects = (renderables) => {
         for (const renderable of renderables) {
             if (renderable.materialName === 'COLLIDER') continue; 
@@ -630,8 +621,7 @@ function drawScene(time) {
             let mat = m4.translation(noteX, noteY, noteZ);
             mat = m4.yRotate(mat, speed * 2.0); // Rotazione sull'asse per tridimensionalità
             
-            // Regola questo valore (es. 0.2) in base a quanto hai fatto grandi i file .obj
-            mat = m4.scale(mat, 0.2, 0.2, 0.2); 
+            mat = m4.scale(mat, 0.3, 0.3, 0.3); 
 
             for (let j = 0; j < 16; j++) {
                 noteMatricesArray[i * 16 + j] = mat[j];
@@ -647,7 +637,6 @@ function drawScene(time) {
         drawObjects(noteRenderables);
     }
 // --- MOTORE DI ANIMAZIONE MAZZMARILL ---
-    // Prepariamo un array piatto per contenere le matrici aggiornate di tutti i folletti
     let mazzMatricesArray = new Float32Array(mazzmarilli.length * 16);
 
     for (let i = 0; i < mazzmarilli.length; i++) {
@@ -657,22 +646,17 @@ function drawScene(time) {
             // Avanziamo il tempo dell'animazione
             mazz.animTimer += 0.03; 
 
-            // 1. Il Salto: Usiamo Math.abs(Math.sin) per creare un effetto "rimbalzo" sulla Y
             let jumpHeight = Math.abs(Math.sin(mazz.animTimer * Math.PI)) * 1.5;
-
-            // 2. La Rotazione: Lo facciamo anche ruotare come una trottola in fuga
             let mat = m4.translation(mazz.basePosition[0], mazz.basePosition[1] + jumpHeight, mazz.basePosition[2]);
             mat = m4.yRotate(mat, mazz.animTimer * 10.0);
             
             mazz.matrix = m4.scale(mat, 0.4, 0.4, 0.4);
 
-            // 3. Fine dell'animazione e Teletrasporto (dopo circa 2 rimbalzi)
+            // 3. Fine dell'animazione e Teletrasporto 
             if (mazz.animTimer > 2.0) {
-                // Peschiamo un indice a caso dall'array dei nascondigli
                 const randomIndex = Math.floor(Math.random() * nascondigli.length);
                 const nuovoSpot = nascondigli[randomIndex];
 
-                // Assegnamo le nuove coordinate
                 mazz.basePosition = [nuovoSpot.pos[0], nuovoSpot.pos[1], nuovoSpot.pos[2]];
                 
                 // Ricostruiamo la matrice includendo la rotazione predefinita
@@ -680,23 +664,19 @@ function drawScene(time) {
                 resetMat = m4.yRotate(resetMat, nuovoSpot.rotazione);
                 mazz.matrix = m4.scale(resetMat, 0.4, 0.4, 0.4);
                 
-                // Rimettiamo lo stato in attesa
                 mazz.state = 'IDLE';
                 mazz.animTimer = 0.0;
             }
         }
 
-        // Copiamo i 16 numeri della matrice aggiornata nell'array piatto
         for (let j = 0; j < 16; j++) {
             mazzMatricesArray[i * 16 + j] = mazz.matrix[j];
         }
     }
 
     // --- AGGIORNAMENTO DELLA SCHEDA VIDEO (VRAM) ---
-    // Diciamo a WebGL: "Ehi, i folletti si sono mossi, ecco le nuove coordinate!"
     for (const renderable of mazzmarillRenderables) {
         gl.bindBuffer(gl.ARRAY_BUFFER, renderable.instanceBuffer);
-        // Usiamo gl.DYNAMIC_DRAW per segnalare che questi dati cambieranno spesso
         gl.bufferData(gl.ARRAY_BUFFER, mazzMatricesArray, gl.DYNAMIC_DRAW);
     }
     // ------------------------------------------------

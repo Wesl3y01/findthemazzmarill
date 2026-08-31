@@ -36,9 +36,6 @@ function isPowerOfTwo(value) {
 	return (value & (value - 1)) === 0;
 }
 
-function degToRad(degrees) {
-	return degrees * Math.PI / 180;
-}
 
 /**
  * Function to load a texture from a URL, with caching and proper WebGL setup.
@@ -77,34 +74,6 @@ async function loadTexture(gl, url) {
 	return promise;
 }
 
-/**
- * Function to load a skybox texture from an image URL to repeat on all faces of the cubemap.
- * @param {*} gl WebGL context
- * @param {*} url Texture URL
- * @returns WebGLTexture object wrapped in a Promise that resolves when the texture is fully loaded and ready.
- */
-async function loadCubemap(gl, url) {
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-
-    const faces = [
-        gl.TEXTURE_CUBE_MAP_POSITIVE_X,
-        gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
-        gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
-        gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
-        gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
-        gl.TEXTURE_CUBE_MAP_NEGATIVE_Z,
-    ];
-
-    const image = await loadImageResource(url);
-    for (const face of faces) {
-        gl.texImage2D(face, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    }
-
-    gl.generateMipmap(gl.TEXTURE_CUBE_MAP); 
-    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    return texture;
-}
 
 // ============================================================================
 // MESH BOUNDING BOX UTILITIES - Used for raycasting and click detection
@@ -135,32 +104,6 @@ function computeBoundingSphere(mesh) {
     return { center, radius };
 }
 
-/**
- * Checks if a ray intersects with a sphere.
- * @param {*} rayOrigin Origin of the ray.
- * @param {*} rayDir Direction of the ray.
- * @param {*} sphere Sphere to check intersection with.
- * @param {*} worldMatrix World matrix for transforming the sphere.
- * @returns {boolean} True if the ray intersects the sphere, false otherwise.
- */
-function raySphereIntersect(rayOrigin, rayDir, sphere, worldMatrix) {
-   
-    const worldCenter = m4.transformPoint(worldMatrix, sphere.center);
-	// Assume uniform scaling and extract the scale factor from the world matrix to adjust the radius accordingly.
-    const scale = Math.hypot(worldMatrix[0], worldMatrix[1], worldMatrix[2]);
-    const worldRadius = sphere.radius * scale;
-
-    const oc = [
-        rayOrigin[0] - worldCenter[0],
-        rayOrigin[1] - worldCenter[1],
-        rayOrigin[2] - worldCenter[2],
-    ];
-    const b = oc[0]*rayDir[0] + oc[1]*rayDir[1] + oc[2]*rayDir[2];
-    const c = oc[0]*oc[0] + oc[1]*oc[1] + oc[2]*oc[2] - worldRadius * worldRadius;
-    const discriminant = b * b - c;
-    
-    return discriminant >= 0; 
-}
 
 // ============================================================================
 // MATERIAL PROPERTIES 
@@ -513,4 +456,15 @@ async function loadOBJModel(gl, objUrl, options = {}) {
 		renderables,
 		boundingSphere: options.computeBoundingSphere ? computeBoundingSphere(mesh) : null,
 	};
+}
+
+// ============================================================================
+// RAYCASTING UTILITIES
+// ============================================================================
+function dotProduct(v1, v2) { 
+	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]; 
+}
+
+function distance(p1, p2) { 
+    return Math.sqrt(Math.pow(p1[0]-p2[0], 2) + Math.pow(p1[1]-p2[1], 2) + Math.pow(p1[2]-p2[2], 2)); 
 }

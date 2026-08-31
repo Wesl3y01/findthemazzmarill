@@ -30,7 +30,7 @@
 
         out vec2 v_uv;
         out vec3 v_normal;
-        out vec3 v_position; // NUOVO: Passa la posizione 3D reale
+        out vec3 v_position; 
 
         void main() {
             mat4 instanceMatrix = mat4(a_instanceMatrix0, a_instanceMatrix1, a_instanceMatrix2, a_instanceMatrix3);
@@ -44,7 +44,7 @@
             mat3 normalMatrix = mat3(instanceMatrix); 
             v_normal = normalize(normalMatrix * a_normal);
             
-            v_position = vec3(worldPos); // Invio al Fragment
+            v_position = vec3(worldPos); 
         }
     </script>
 
@@ -62,10 +62,8 @@
         uniform vec3 u_sunDirection; 
         uniform vec3 u_sunColor;
         
-        // NUOVO: Definiamo il numero esatto di lampioni
         #define NUM_LAMPS 14
         
-        // NUOVO: Array di coordinate
         uniform vec3 u_lampPositions[NUM_LAMPS]; 
         
         uniform vec3 u_lampColor; 
