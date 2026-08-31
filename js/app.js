@@ -98,13 +98,13 @@ async function main() {
     }
 
     gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE); 
+    //gl.enable(gl.CULL_FACE); 
 
     program = webglUtils.createProgramFromScripts(gl, ["vs", "fs"]);
 
     console.log("Inizio caricamento borgo...");
     
-    const borgoData = await loadOBJModel(gl, 'assets/models/village.obj?v=1', { textureBaseDir: 'assets/textures/' });
+    const borgoData = await loadOBJModel(gl, 'assets/models/village.obj?', { textureBaseDir: 'assets/textures/' });
     
     const attribLocations = {
         position: 0,
@@ -133,7 +133,7 @@ async function main() {
     console.log("Borgo pronto per il render!", borgoRenderables);
 
     console.log("Inizio caricamento Mazzmarill...");
-    const mazzData = await loadOBJModel(gl, 'assets/models/mazzmarill.obj?v=4', { textureBaseDir: 'assets/textures/' });
+    const mazzData = await loadOBJModel(gl, 'assets/models/mazzmarill.obj', { textureBaseDir: 'assets/textures/' });
     
     // --- AUDIO ---
     const ghigno1 = new Audio('assets/audio/risata1.mp3'); 

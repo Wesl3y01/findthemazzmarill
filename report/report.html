@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="author" content="Giordana Martucci" />
-    <title>Relazione di Computer Graphics Modulo 2</title>
+    <meta name="author" content="Francesca Guzzi" />
+    <title>Relazione di Computer Graphics</title>
 
     <style>
         body {
@@ -42,7 +42,7 @@
             color: #111;
             text-decoration: none;
         }
-        a:hover { text-decoration: underline; }
+        a.hover { text-decoration: underline; }
 
         section {
             margin-bottom: 2.5rem;
@@ -82,8 +82,18 @@
             line-height: 1.5;
         }
         
-        .reference {
-            margin-bottom: 0.5rem;
+        .math {
+            font-family: "Courier New", monospace;
+            font-size: 10pt;
+            background: #f9f9f9;
+            padding: 0.5rem 1rem;
+            margin: 0.75rem 0;
+            display: block;
+        }
+
+        reference {
+            display: block;
+            margin: 0.5rem 0;
         }
     </style>
 
@@ -92,192 +102,454 @@
 <body>
 
     <header id="top">
-        <h1>Report Computer Graphics Modulo 2</h1>
-        <p class="subtitle">Kyoto Bus Stop — Scena 3D interattiva sviluppata in Three.js</p>
+        <h1>Report Computer Graphics</h1>
+        <p class="subtitle">Scena 3D interattiva sviluppata in WebGL 2.0</p>
 
-            <div><span>Autrice:</span> Giordana Martucci</div>
-            <div><span>Matricola:</span> 0001189559</div>
-            <div><span>Docente:</span> Prof. Serena Morigi</div>
+            <div><span>Autrice:</span> Francesca Guzzi</div>
+            <div><span>Matricola:</span> 0001195122</div>
+            <div><span>Docente:</span> Prof. Giulio Casciola</div>
     </header>
 
     <nav id="indice">
         <h2>Indice</h2>
         <ol>
             <li><a href="#introduzione">Introduzione</a></li>
-            <li><a href="#gltf">Caricamento GLTF e Asset</a></li>
-            <li><a href="#autobus">Movimento dell'Autobus e Animazioni</a></li>
-            <li><a href="#interazione">Interazione Utente</a></li>
-            <li><a href="#illuminazione">Illuminazione e Ottimizzazione</a></li>
+            <li><a href="#architettura">Architettura generale</a></li>
+            <li><a href="#pipeline">Pipeline di Rendering e Instanced Drawing</a></li>
+            <li><a href="#shader">Shader GLSL e Modello di Illuminazione</a></li>
+            <li><a href="#moduli">Moduli JavaScript</a></li>
+            <li><a href="#avanzato">Tecniche di Rendering Avanzate</a></li>
+            <li><a href="#riferimenti">Riferimenti</a></li>
         </ol>
     </nav>
 
+    <!-- 1 -->
     <section id="introduzione">
         <h2>1. Introduzione</h2>
-
         <p>
-            L'applicazione interattiva "Kyoto Bus Stop", interamente sviluppata in Three.js, prende ispirazione dall'estetica
-            tradizionale dei tramonti giapponesi in stile anime per creare una piccola esperienza visiva e interattiva. 
+            "Soup in the Woods" è un'applicazione interattiva 3D sviluppata interamente in WebGL 2.0. La scena raffigura una 
+            foresta notturna illuminata da un fuoco da campeggio, in cui l'utente può esplorare l'ambiente, raccogliere dei 
+            funghi ed utilizzarli per servire della zuppa a dei topolini disposti intorno al fuoco. 
+
+            <img src="images/screenshot-completo.png" style="max-width: 100%; margin-top: 0.5rem;" />
+        </p>
+        <p>
+            Per realizzare la scena, dapprima ideata e progettata in Blender, è stato necessario gestire in maniera
+            efficiente molte istanze dello stesso modello: alberi, cespugli e funghi sono presenti in decine di copie
+            con posizioni diverse, e disegnarli con draw call separate avrebbe comportato un overhead eccessivo.
+            Si è quindi scelto di usare l'<strong>instanced rendering</strong> di WebGL 2.0 (<code>gl.drawArraysInstanced</code>), che 
+            permette di inviare alla GPU un unico VAO con una matrice di trasformazione per ogni istanza, riducendo le
+            draw call a una per ogni materiale indipendentemente dal numero di istanze <a href="#riferimenti">[1]</a>. 
+        </p>
+        <p>
+            Inoltre, per ottenere un'<strong>illuminazione realistica del fuoco</strong> (luce puntiforme), è stata implementata una tecnica di attenuazione 
+            quadratica <a href="#riferimenti">[2]</a> ed un termine di diffuse modificato (<em>wrapped Lambert</em>) che ammorbidisce le ombre e simula 
+            l'effetto di <em>subsurface scattering</em> tipica della luce del fuoco aggiungendo un parametro <code>wrap</code> per distribuire il contributo diffusivo 
+            anche sulle superfici parzialmente in ombra <a href="#riferimenti">[3]</a><a href="#riferimenti">[4]</a>. Questa tecnica, seppur approssimativa, 
+            ha permesso di ottenere un risultato visivamente più realistico, in combinazione con l'animazione del crepitio delle fiamme e con la variazione 
+            dell'intensità luminosa. 
+        </p>
+        <p>
+            Il modello di illuminazione Phong è stato esteso con un secondo contributo diffusivo e speculare per la <strong>luce direzionale della luna</strong>, che illumina la scena 
+            in modo più uniforme e freddo, creando un contrasto con il calore del fuoco. 
+            Per aumentare ulteriormente il realismo dei materiali, sono state utilizzate texture diffuse, <em>specular map</em> e <strong>bump map</strong>, che permettono di simulare dettagli 
+            superficiali senza aumentare la complessità geometrica. 
+            Il bump mapping si può notare particolarmente sul legno (sia sui tronchi degli alberi che sui rami in prossimità del focolare), sul terreno e sul pentolone, 
+            mentre le specular map aggiungono riflessi più realistici su tutti gli oggetti in prossimità del fuoco (pentola, rocce, rami). Si è optato per l'utilizzo 
+            delle specular map poichè molte erano già presenti nel modello 3D scaricato dalla repository (SketchFab).
             
-            <img src="images/screen_complete.png" style="max-width: 100%; margin-top: 0.5rem;" />
+            Per il rendering delle foglie degli alberi e dei cespugli, invece, sono state utilizzate delle 
+            geometrie piatte con texture trasparenti, disegnate con blending (<strong>alpha clipping</strong>) e senza culling delle facce, per garantire la visibilità da entrambi i lati.
         </p>
-
         <p>
-            La scena rappresenta una fermata dell'autobus lungo una strada giapponese al tramonto, arricchita da elementi compositivi 
-            dettagliati come distributori automatici, panchine, bonsai, edifici tradizionali e un gatto adagiato sul marciapiede. 
-            L'utente può interagire direttamente con la scena richiamando un autobus di linea tramite un pannello di benvenuto dedicato, 
-            oppure interagendo con il gatto per attivare un sistema particellare procedurale di cuori 3D.
-
-            <img src="images/screen_bus.png" style="max-width: 100%; margin-top: 0.5rem;" />
+            L'interazione utente è gestita tramite un sistema di <strong>ray casting</strong> che permette di selezionare i funghi con il mouse (o tramite touch) e raccoglierli in un inventario, 
+            da cui possono essere poi serviti ai topolini. Il ray casting è implementato calcolando l'intersezione tra il raggio generato dalla posizione del click, costruito 
+            direttamente a partire dai vettori locali della camera, e le bounding sphere di ogni istanza interattiva <a href="#riferimenti">[6]</a><a href="#riferimenti">[7]</a>.
         </p>
 
         <p> 
-            Il progetto è stato composto ed ottimizzato interamente in Blender, assemblando l'ambiente urbano, i lampioni, l'autobus e i modelli animati.
-            L'illuminazione complessiva è modellata da una luce ambientale calda e da una luce direzionale inclinata che genera ombre morbide 
-            (<em>PCF Soft Shadow Map</em>). Ciascun lampione stradale è stato cablato via codice integrando sorgenti puntiformi calde, 
-            la cui gestione in tempo reale è demandata a una GUI interattiva per manipolare l'atmosfera luminosa complessiva.
+            Il minigioco consiste quindi nel raccogliere i funghi che crescono casualmente nella foresta e servirli ai topolini, che reagiscono con animazioni di <em>bounce</em> (approvazione), 
+            <em>nod</em> (indifferenza) e <em>shake</em> (rifiuto). Diverse combinazioni di funghi portano a risultati diversi, e il giocatore è invitato a sperimentare per scoprire tutte le reazioni dei topolini.
+    </section>
+
+    <!-- 2 -->
+    <section id="architettura">
+        <h2>2. Architettura generale</h2>
+        <p>
+            Il progetto è strutturato in moduli JavaScript con responsabilità ben distinte:
+        </p>
+        <pre>index.html         &lt;!-- interfaccia e definizione shader --&gt;
+js/
+  main.js          &lt;!-- loop di rendering e gestione input utente --&gt;
+  scene.js         &lt;!-- contesto WebGL, programmi shader, render --&gt;
+  forest.js        &lt;!-- scena 3D: modelli, funghi, animazioni --&gt;
+  camera.js        &lt;!-- camera orbitale in coordinate sferiche --&gt;
+  light.js         &lt;!-- sorgenti luminose (fuoco, luna) --&gt;
+  game.js          &lt;!-- logica di gioco, ray casting, inventario --&gt;
+  utilities.js     &lt;!-- caricamento OBJ/MTL, texture, VAO, geometria --&gt;
+  ui.js            &lt;!-- interfaccia utente con inventario e dat.GUI --&gt;
+assets/
+  models/          &lt;!-- file .obj e .mtl --&gt;
+  textures/        &lt;!-- diffuse, bump, specular, skybox --&gt;
+lib/               &lt;!-- librerie esterne (gl-matrix, m4, dat.GUI) --&gt;</pre>
+
+        <p>
+            L'inizializzazione è asincrona e gestita in <code>main.js</code>. La funzione
+            <code>main()</code> è un IIFE (<em>Immediately Invoked Function Expression</em>) dichiarata
+            <code>async</code>. Crea prima la <code>Camera</code> e poi la <code>Scene</code>, che a
+            sua volta istanzia la <code>Forest</code> e attende il caricamento di tutti i modelli 3D
+            prima di avviare il loop. Solo dopo che <code>scene.init()</code> si risolve vengono creati
+            <code>UI</code> e <code>Game</code>, e si avvia il loop con <code>requestAnimationFrame</code>.
         </p>
     </section>
 
-    <section id="gltf">
-        <h2>2. Caricamento GLTF e Asset</h2>
+    <!-- 3 -->
+    <section id="pipeline">
+        <h2>3. Pipeline di rendering e Instanced Drawing</h2>
+        <h3>Struttura del frame</h3>
         <p>
-            L'intera ambientazione viene caricata da un unico file compresso in formato GLTF/GLB mediante l'utilizzo del <code>GLTFLoader</code>. 
-            Durante la fase di parsing asincrono della gerarchia poligonale, vengono identificati, estratti e memorizzati i principali componenti interattivi: 
-        </p>
-            <ul>
-                <li> <strong>Autobus:</strong> modello dinamico vincolato alla macchina a stati di movimento, inizialmente invisibile;</li>
-                <li> <strong>Gatto:</strong> mesh poligonale interattiva associata al raycaster e dotata di un'animazione nativa;</li>
-                <li> <strong>SM_StreetLight:</strong> mesh dei lampioni stradali deputate a ospitare i punti luce locali;</li>
-                <li> <strong>Materiali e roughness map:</strong> superfici filtrate a runtime per garantire una risposta opaca e non speculare della strada.</li>
-            </ul>
-        <p>
-            La centratura dello scenario rispetto all'origine del mondo viene calcolata dinamicamente estraendo il bounding box complessivo mediante <code>Box3</code>, 
-            sottraendo poi il centro geometrico ottenuto dalla posizione della mesh radice. Questo accorgimento evita disallineamenti della telecamera e ottimizza il punto di rotazione degli <code>OrbitControls</code>.
+            Ad ogni frame vengono calcolate la matrice di proiezione prospettica (FOV 60°, near 0.1, far 200)
+            e la view matrix dalla camera. La sequenza di rendering è: pulizia del framebuffer, disegno della
+            skybox, poi tutti gli oggetti della scena con il programma shader principale.
         </p>
 
-        <h3>Environment e Sfondo Equirettangolare</h3>
+        <h3>Instanced rendering</h3>
         <p>
-            Il cielo al tramonto non è modellato tramite geometria tridimensionale (come una tradizionale <em>skybox</em> poligonale), ma è implementato a livello di scena globale caricando una texture 2D esterna. 
-            Questa immagine viene avvolta matematicamente attorno all'osservatore impostando la proprietà di interpolazione su <code>THREE.EquirectangularReflectionMapping</code> e assegnandola direttamente a <code>scene.background</code>. 
-            Questo approccio ottimizza le prestazioni di rendering e garantisce un orizzonte continuo a 360 gradi, mantenendo la coerenza visiva forzando la texture nello spazio colore <code>SRGBColorSpace</code>.
+            Ogni oggetto non ha una model matrix come uniform: la trasformazione individuale è un attributo
+            per istanza (<code>a_instanceMatrix</code>, location 2–5) letto dal buffer dedicato. Poiché una
+            <code>mat4</code> non può essere passata come singolo attributo GLSL, viene suddivisa in quattro
+            <code>vec4</code> consecutivi; per ciascuno si chiama <code>gl.vertexAttribDivisor(loc, 1)</code>,
+            che istruisce la GPU ad avanzare di una matrice per istanza anziché per vertice <a href="#riferimenti">[1]</a>.
         </p>
-   </section>
-
-    <section id="autobus">
-        <h2>3. Movimento dell'Autobus e Animazioni</h2>
+        <p>
+            Per gli oggetti con animazioni dinamiche (funghi, fuoco, topi), le instance matrix vengono
+            aggiornate ogni frame tramite <code>gl.bufferSubData()</code>, sovrascrivendo solo i dati
+            necessari senza ricreare i VAO <a href="#riferimenti">[2]</a>.
+        </p>
+        <p>
+            Ogni modello è suddiviso in <em>renderable</em>, uno per materiale, poiché WebGL richiede
+            una draw call separata per ogni combinazione di VAO e texture. La draw call finale è:
+        </p>
+        <code style="display:block; margin: 0.5rem 0;">gl.drawArraysInstanced(gl.TRIANGLES, 0, vertexCount, instanceCount)</code>
         
-        <h3>Implementazione del Movimento</h3>
+        <h3>Preparazione della geometria</h3>
+        <p>
+            <code>meshToGeometry()</code> converte la struttura interna della mesh OBJ in quattro
+            <code>Float32Array</code> piatti: posizioni, UV, normali e tangenti. I file OBJ sono stati
+            esportati da Blender con l'opzione <em>Triangulate Mesh</em>, garantendo che ogni faccia
+            abbia esattamente 3 vertici ed eliminando la necessità di triangolazione a runtime.
+            Per ogni triangolo viene calcolata la tangente algebrica necessaria per il bump mapping.
+        </p>
+ 
+        <h3>Skybox</h3>
+        <p>
+            La skybox è disegnata con un quad di 4 vertici in NDC (<code>TRIANGLE_STRIP</code>). Il
+            vertex shader imposta <code>gl_Position = vec4(xy, 1, 1)</code>, posizionando ogni frammento
+            alla profondità massima del frustum; il depth test viene impostato a <code>LEQUAL</code>
+            per evitare che la skybox sovrascriva oggetti già disegnati. Il fragment shader ricostruisce
+            la direzione di campionamento moltiplicando le coordinate NDC per
+            <code>u_viewDirectionProjectionInverse</code> e applicando uno <code>smoothstep</code>
+            all'orizzonte per simulare una sfumatura graduale verso il nero ed evitare che le stelle appaiano a ridosso del terreno.
+        </p>
+
+        <h3>Blending e depth test</h3>
+        <p>
+            Fin dall'inizializzazione, il blending è abilitato con la formula standard
+            <code>SRC_ALPHA, ONE_MINUS_SRC_ALPHA</code> per gestire la trasparenza. Il culling
+            delle facce è disabilitato (<code>gl.disable(CULL_FACE)</code>) per rendere correttamente
+            le foglie degli alberi, che sono geometrie piatte visibili da entrambi i lati.
+        </p>
 
         <p>
-            Il comportamento cinematica dell'autobus è governato da una struttura di stato denominata <code>autobusState</code>, la quale incapsula i parametri di velocità, 
-            visibilità e le coordinate chiave sull'asse X (posizione iniziale di immissione, punto di fermata e coordinate di uscita). 
-            La logica di traslazione è gestita nella funzione di aggiornamento frame-by-frame <code>updateAutobus</code>:
-        </p>
-        <ol>
-            <li><strong>Fase di Approccio (Stato 1):</strong> l'autobus avanza a velocità costante verso lo zero geometrico della fermata.</li>
-            <li><strong>Fase di Sosta (Stato 0):</strong> raggiunto il punto di fermata, il moto si azzera e viene avviato un timer di sosta calcolato sul tempo assoluto della scena.</li>
-            <li><strong>Fase di Allontanamento (Stato 2):</strong> trascorsi i secondi previsti di sosta, l'autobus riprende la marcia fino a superare i confini visibili del diorama, dove viene nascosto.</li>
-        </ol>
-
-        <p>
-            La gestione del tempo e lo spostamento fluido dei modelli nello spazio tridimensionale si basano sul calcolo del delta temporale ricavato da <code>THREE.Clock</code>, 
-            garantendo una velocità di marcia indipendente dal frame rate del browser.
+            Il risultato senza illuminazione iniziale è: 
+            <img src="images/screenshot-instances.png" style="max-width: 100%; margin-top: 0.5rem;" />
         </p>
 
-        <pre>
-if (autobusState.direzione === 1) {
-    if (bus.position.x > autobusState.posFermataX) {
-        bus.position.x -= autobusState.speed * delta;
-    } else {
-        bus.position.x = autobusState.posFermataX;
-        autobusState.direzione = 0;
-        autobusState.timerFermata = t + autobusState.durataSosta;
-    }
-}</pre>
-    
-        <h3>Animazione del Gatto</h3>
-        <p>
-            Il modello del gatto include un'animazione scheletrica nativa esportata da Blender. Al caricamento del file, il codice instanzia un 
-            <code>AnimationMixer</code> collegato alla mesh dell'animale. La "traccia" viene estratta dall'array delle clip, configurata in riproduzione continua 
-            (<code>THREE.LoopRepeat</code>) e aggiornata costantemente nel loop di rendering principale.
-        </p>
-        <pre>
-gattoMixer = new THREE.AnimationMixer(gattoMesh);
-const action = gltf.animations[0];
-const clipAction = gattoMixer.clipAction(action);
-clipAction.setLoop(THREE.LoopRepeat, Infinity);
-clipAction.play();
-</pre>
     </section>
 
-    <section id="interazione">
-        <h2>4. Interazione Utente</h2>
+    <!-- 4 -->
+    <section id="shader">
+        <h2>4. Shader GLSL e Modello di Illuminazione</h2>
 
+        <h3>Wrapped Lambert per la luce del fuoco</h3>
         <p>
-            L'interazione con la scena è strutturata su due livelli: l'utilizzo di un'interfaccia grafica bidimensionale in overlay per i comandi globali e l'interazione 
-            diretta nello spazio 3D tramite algoritmi di raycasting per intercettare i click sui modelli poligonali.
+            Il modello Lambertiano standard calcola il contributo diffusivo come <code>max(N·L, 0)</code>, producendo una 
+            distinzione netta tra luce e ombra, con superfici completamente nere sul lato non illuminato. 
+            Per simulare la luce diffusa di un fuoco in un ambiente notturno, si adotta un'approssimazione del modello <em>Wrapped Lambert</em>
+            <a href="#riferimenti">[3]</a><a href="#riferimenti">[4]</a>:
+        </p>
+        <span class="math">diffuse = max(N·L, 0) * wrap + (1 - wrap)</span>
+        <p>
+            Il parametro <em>wrap</em> ∈ [0, 1] controlla quanta luce "avvolge" le superfici in ombra:
+            per <em>wrap</em> = 0 si riduce al Lambertiano classico; per <em>wrap</em> = 1 la luce
+            raggiunge anche le superfici completamente in ombra. Questa formulazione può essere
+            interpretata come un'interpolazione lineare tra illuminazione costante e Lambertiano
+            standard, ed è un'approssimazione pratica dello scattering della luce nell'aria circostante <a href="#riferimenti">[4]</a>.
+        </p>
+        <p>
+            L'attenuazione della luce puntiforme segue una legge quadratica <a href="#riferimenti">[2]</a>:
+        </p>
+        <span class="math">brightness = intensity / (kc + k1 * dist + kq * dist²)</span> 
+        <p>
+            Con kc = 1, k1 = 0, kq = 0.08. La componente speculare usa il modello Blinn-Phong con vettore halfway
+            <code>H = normalize(L + V)</code>.
+        </p>
+
+        <h3>Luna (luce direzionale)</h3>
+        <p>
+            La luna è una luce direzionale con intensità fissa 0.3 e colore blu-grigio freddo,
+            usata come termine ambientale notturno. Contribuisce sia al diffuse che allo speculare.
+            Se è abilitata una specular map (<code>u_useSpecularMap</code>), il campione della texture
+            moltiplica il contributo speculare, modulando la lucentezza per area di superficie.
         </p>
 
         <p>
-            Il pannello informativo di benvenuto è generato dinamicamente a runtime tramite la funzione <code>createWelcomePanel</code>, che inietta codice HTML/CSS 
-            sfruttando le proprietà di sfocatura dello sfondo (<code>backdrop-filter: blur</code>). All'interno di questo pannello è integrato un pulsante custom 
-            che triggera direttamente la funzione <code>chiamaAutobus()</code>, escludendo la necessità di appoggiarsi a fogli di stile esterni.
+            Con l'illuminazione completa, il risultato è:
+
+            <img src="images/screenshot-light.png" style="max-width: 100%; margin-top: 0.5rem;" />
         </p>
-
-        <p>
-            L'interazione con il gatto è gestita tramite un event listener globale in ascolto sull'evento <code>pointerdown</code>, 
-            garantendo così compatibilità sia con il mouse che con dispositivi touch. Al momento dell'input, la funzione di callback dedicata 
-            converte le coordinate bidimensionali dello schermo in coordinate normalizzate del dispositivo (NDC, range <span class="math">[-1, 1]</span>). 
-            Il vettore così ottenuto viene impiegato per orientare un <code>THREE.Raycaster</code> a partire dalla telecamera corrente per 
-            verificare l'intersezione con la geometria del modello.
-        </p>
-        <pre>
-function onPointerDown(event) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-
-    if (gattoMesh) {
-        const intersects = raycaster.intersectObject(gattoMesh, true);
-        if (intersects.length > 0) {
-            coccolaGatto();
-        }
-    }
-}
-
-window.addEventListener('pointerdown', onPointerDown);</pre>
     </section>
 
-    <section id="illuminazione">
-        <h2>5. Illuminazione e Ottimizzazione</h2>
+    <!-- 5 -->
+    <section id="moduli">
+        <h2>5. Moduli JavaScript</h2>
 
-        <p>La luce ricopre un ruolo fondamentale nel determinare il look cinematografico e anime della scena, combinando sorgenti globali e locali:</p>
-
-        <ol>
-            <li><strong>Luce Direzionale:</strong> agisce come sorgente luminosa primaria per simulare un sole al tramonto. Essendo posizionata bassa all'orizzonte, proietta ombre lunghe e morbide (tramite algoritmo PCF) che enfatizzano la profondità e i volumi degli edifici.</li>
-            <li><strong>Luce Ambientale:</strong> diffonde una leggera tonalità calda e rosata su tutta l'ambientazione. Il suo scopo è ammorbidire i contrasti e illuminare delicatamente le zone d'ombra proiettate dai palazzi, che altrimenti risulterebbero innaturalmente buie.</li>
-            <li><strong>Luci Puntiformi:</strong> fungono da illuminazione artificiale locale. Sono posizionate all'interno delle lanterne di ciascun lampione lungo la strada e irradiano una luce calda in un raggio circoscritto.</li>
-        </ol>   
-
-        <p> 
-            L'intera atmosfera luminosa è gestibile dinamicamente dall'utente tramite un pannello di controllo dell'interfaccia. Tramite questi comandi è possibile variare l'intensità del sole, modificarne la tinta in tempo reale e interagire con un interruttore generale che accende o spegne l'illuminazione di tutti i lampioni stradali contemporaneamente.
+        <h3>utilities.js: caricamento risorse e preparazione geometria</h3>
+        <p>
+            È il modulo più denso del progetto: contiene tutte le funzioni di caricamento asincrono,
+            conversione della geometria e setup dei buffer GPU.
+        </p>
+        <p>
+            <code>loadOBJModel()</code> è la funzione principale di caricamento: legge il file OBJ
+            tramite la libreria <code>mesh_utils.js</code>, poi il file MTL associato, e costruisce
+            per ogni materiale un oggetto <em>renderable</em> contenente geometria, texture e proprietà
+            del materiale. 
+        </p>
+        <p>
+            <code>meshToGeometry()</code> converte la struttura interna della mesh OBJ in array piatti
+            (<code>Float32Array</code>) pronti per la GPU. 
+            Per ogni triangolo calcola anche la tangente nel tangent space, necessaria per il bump
+            mapping: la tangente è ricavata algebricamente dagli edge del triangolo e dalle differenze
+            UV, risolvendo il sistema <code>[T, B] = [e1, e2] * inv([dU, dV])</code>.
+        </p>
+        <p>
+            <code>loadTexture()</code> gestisce il caricamento asincrono delle texture con una cache
+            globale (<code>Map</code>) che evita di ricaricare la stessa immagine più volte. Crea
+            immediatamente una texture placeholder bianca 1×1 poi sostituisce i dati una volta che 
+            l'immagine è caricata. Se le dimensioni sono potenza di 2, genera automaticamente i mipmap con
+            <code>generateMipmap()</code>; altrimenti imposta il wrapping a <code>CLAMP_TO_EDGE</code>
+            e il filtro a <code>LINEAR</code>.
+        </p>
+        <p>
+            <code>loadCubemap()</code> carica la cubemap della skybox: la stessa immagine è usata
+            per tutte e sei le facce, dato che in questo progetto l'immagine del cielo è simmetrica.
+        </p>
+        <p>
+            <code>computeBoundingSphere()</code> calcola la bounding sphere di una mesh iterando su
+            tutti i vertici e trovando il bounding box axis-aligned; il centro è il punto medio del
+            bounding box e il raggio è la metà della dimensione massima tra i tre assi. Questa
+            approssimazione è usata per il ray casting dei funghi e del focolare <a href="#riferimenti">[8]</a>.
+        </p>
+        <p>
+            <code>raySphereIntersect()</code> implementa il test raggio-sfera analitico: dati origine
+            e direzione del raggio e la sfera in world space (centro trasformato dalla model matrix,
+            raggio scalato dalla norma della prima colonna della matrice), risolve l'equazione quadratica
+            e restituisce true se il discriminante è non negativo <a href="#riferimenti">[6]</a><a href="#riferimenti">[7]</a>.
         </p>
 
-        <h3>Sistema Particellare Procedurale</h3>
+        <h3>scene.js : contesto WebGL e loop di rendering</h3>
         <p>
-            L'interazione con il gatto genera un sistema di particelle estruse tridimensionalmente. La geometria a forma di cuore viene tracciata nel piano 2D 
-            mediante curve di Bézier cubiche (<code>bezierCurveTo</code>) e successivamente convertita in solido geometrico tramite <code>ExtrudeGeometry</code>. 
-            Ogni particella subisce un'integrazione vettoriale di moto ad ogni frame e si riduce progressivamente in scala in base al coefficiente di vita residua 
-            (<code>userData.life</code>) prima di essere de-allocata per preservare la memoria.
+            <code>Scene</code> è la classe centrale dell'applicazione. Il costruttore ottiene il
+            contesto WebGL 2 dal canvas e inizializza a null tutte le risorse GPU (program, VAO,
+            uniform locations). Il metodo <code>init()</code> è asincrono: compila i due programmi
+            shader tramite <code>webglUtils.createProgramFromScripts()</code>, legge le location
+            di tutti gli attributi e delle uniform una sola volta (per evitare lookup ad ogni frame)
+            e delega alla <code>Forest</code> il caricamento dei modelli.
+        </p>
+        <p>
+            Il metodo <code>render()</code> è chiamato ad ogni frame. Calcola le matrici, disegna
+            prima la skybox con il suo programma dedicato, poi reimposta il depth function e
+            attiva il programma principale. Prima di delegare il rendering alla foresta, imposta
+            le uniform delle sorgenti luminose: posizione, colore e intensità del fuoco, direzione
+            e colore della luna, posizione della camera (necessaria per i calcoli speculari).
+            Espone anche metodi di toggle che fungono da interfaccia tra l'UI e la logica interna 
+            della <code>Forest</code>.
         </p>
 
-        <h3>Monitoraggio delle Prestazioni</h3>
+        <h3>forest.js: gestione della scena 3D</h3>
         <p>
-            Al fine di verificare la fluidità della scena, è stato integrato il modulo <code>Stats.js</code>, riposizionato in basso a destra. 
-            Per ridurne l'impatto visivo e non spezzare l'immersione nel diorama, il pannello è stato personalizzato tramite regole CSS inline: 
-            limitandone l'altezza (<code>height: '16px'</code>) e nascondendone l'eccedenza (<code>overflow: 'hidden'</code>), 
-            è stata mascherata la componente del grafico a barre, mantenendo visibile ed essenziale esclusivamente il contatore numerico dei frame per secondo.
+            <code>Forest</code> gestisce tutti gli oggetti della scena: terreno, alberi, rocce,
+            cespugli, il fuoco da campo, i topi e i funghi. Il metodo <code>init()</code> carica
+            in sequenza tutti i modelli OBJ, costruisce le matrici di trasformazione per ogni
+            istanza e chiama <code>buildModel()</code> per preparare i VAO.
+        </p>
+        <p>
+            I funghi vengono <em>generati</em> in posizioni casuali entro un raggio di 5–10 unità dal centro con orientamento Y casuale, 
+            con un massimo di 6 istanze attive alla volta (<code>MAX_MUSHROOMS</code>). Quando il numero di funghi attivi scende sotto la 
+            soglia <code>RESPAWN_THRESHOLD</code> nuovi funghi vengono aggiunti senza ricreare i VAO. Le istanze non usate vengono
+            nascoste impostando la loro instance matrix a scala zero ed il buffer GPU è aggiornato con
+            <code>gl.bufferSubData()</code> senza ricreare il VAO. 
+        </p>
+            Le animazioni dei topi sono parametrizzate su un progresso normalizzato [0,1] con durata
+            800 ms: <em>bounce</em> usa <code>|sin(t·π)|</code> per due salti consecutivi; <em>nod</em>
+            usa <code>sin(2t·π)</code> per un'oscillazione sull'asse Y; <em>shake</em> usa
+            <code>sin(4t·π)·(1−progress)</code> con smorzamento verso la fine. L'animazione del fuoco
+            usa una funzione composita con seni a frequenze irrazionali per simulare il crepitio
+            irregolare della fiamma; la scala influenza proporzionalmente l'intensità della luce
+            puntiforme in <code>Light</code>.
+        </p>
+
+
+        <h3>camera.js: camera orbitale in coordinate sferiche</h3>
+        <p>
+            La camera è orbitale attorno a un punto fisso (<code>target</code>) ed è espressa in
+            coordinate sferiche con angolo θ (rotazione orizzontale) e angolo φ (rotazione verticale).
+            <code>orbit()</code> aggiorna i due angoli con sensibilità 0.01 rad per pixel; φ è limitato
+            superiormente a <code>acos((groundY − target.y) / distance)</code> per non passare sotto
+            il terreno, e inferiormente a 0.1 rad per evitare il flip. Lo zoom sposta la camera lungo
+            il vettore <code>forward</code> con limiti [2, 25]. I vettori locali (<code>forward</code>,
+            <code>right</code>, <code>up</code>) sono ricalcolati per prodotto vettoriale ad ogni frame
+            e usati da <code>Game</code> per costruire il raggio di picking.
+        </p>
+
+        <h3>light.js: sorgenti luminose</h3>
+        <p>
+            Il modulo espone un singleton (<code>window.Light</code>) costruito con il pattern IIFE.
+            Definisce due oggetti luminosi: il fuoco, luce puntiforme in posizione centrale
+            con colore arancione caldo e intensità base 5.0; e la luna,
+            luce direzionale con colore blu-grigio freddo e intensità 0.3.
+            L'unica funzione di modifica esposta è <code>setFireIntensity()</code>, chiamata ogni
+            frame da <code>main.js</code> in sincronia con l'animazione della scala del fuoco.
+        </p>
+
+        <h3>game.js: logica di gioco e ray casting</h3>
+        <p>
+            <code>Game</code> gestisce l'interazione utente: intercetta i click sul canvas, converte
+            le coordinate schermo in un raggio 3D e verifica se il raggio colpisce un fungo o il fuoco.
+        </p>
+        <p>
+            <code>getRayFromScreen()</code> costruisce il raggio di picking dai vettori locali della
+            camera, senza invertire la matrice di proiezione. Il punteggio della zuppa è definito da
+            due strutture statiche: <code>SOUP_PREFERENCES</code> assegna un valore a ogni tipo di
+            fungo (rosso −2, viola +1, marrone +2); <code>COMBO_BONUSES</code> aggiunge punti per
+            combinazioni specifiche nell'inventario. Il punteggio totale determina la reazione dei
+            topi: <em>bounce</em> per punteggio ≥ 3, <em>nod</em> per 3 > punteggio ≥ 0, <em>shake</em>
+            altrimenti.
+        </p>
+
+        <h3>main.js: loop di rendering e gestione input</h3>
+        <p>
+            Il loop di rendering è avviato con <code>requestAnimationFrame</code> e ad ogni iterazione
+            aggiorna le animazioni con il <code>deltaTime</code> calcolato dalla differenza di timestamp
+            tra frame, ricalcola la scala e l'intensità del fuoco, poi chiama <code>scene.render()</code>.
+        </p>
+        <p>
+            La gestione dell'input distingue click da drag: se la distanza percorsa al mouseup è
+            inferiore a 5 pixel il gesto è un click e viene inoltrato a <code>Game</code>; altrimenti
+            è una rotazione della camera. Per gli eventi touch è gestito anche il pinch-to-zoom: la
+            distanza tra le due dita è usata come delta di zoom.
+        </p>
+
+    </section>
+
+    <!-- 6 -->
+    <section id="avanzato">
+        <h2>6. Tecniche di Rendering Avanzate</h2>
+
+        <h3>Bump Mapping con Heightmap</h3>
+        <p>
+            Il bump mapping è implementato nel fragment shader a partire da una heightmap in scala di
+            grigi. Il gradiente è approssimato con differenze finite: si campionano i valori della
+            heightmap al punto UV corrente (<code>bm0</code>), a un pixel verso destra (<code>bmR</code>)
+            e verso l'alto (<code>bmU</code>). Il vettore di perturbazione della normale è:
+        </p>
+        <span class="math">bumpVec = (bmR − bm0) · T + (bmU − bm0) · B</span>
+        <p>
+            dove T è la tangente e B = cross(N, T) la bitangente. La tangente è riortogonalizzata
+            via Gram-Schmidt nello shader (<code>T = normalize(T − dot(T,N)·N)</code>) per compensare
+            eventuali imprecisioni dell'interpolazione. La normale perturbata è:
+        </p>
+        <span class="math">N' = normalize(N + bumpVec · strength)</span>
+        <p>
+            con <em>strength</em> = 3.5 di default, regolabile dall'utente tramite UI dedicata. Le tangenti in world space
+            sono precalcolate in <code>meshToGeometry()</code> risolvendo per ogni triangolo il sistema:
+        </p>
+        <span class="math">[T, B] = [e1, e2] · inv([ΔU, ΔV])</span>
+        <p>
+            dove e1, e2 sono gli edge 3D del triangolo e ΔU, ΔV le differenze nelle coordinate UV.
+        </p>
+
+        <h3>Alpha Clipping per le foglie</h3>
+        <p>
+            Le foglie sono mesh piatte con texture semi-trasparente. Per evitare gli artefatti di
+            ordinamento del blending, ogni frammento con <code>alpha &lt; 0.9</code> viene scartato
+            con <code>discard</code>; il blending è contestualmente disabilitato lato CPU. Il materiale
+            su cui applicare l'alpha clipping è identificato automaticamente verificando che il nome
+            nel file MTL contenga la stringa <code>"leave"</code>.
+        </p>
+ 
+        <h3>Ray Casting per l'interazione</h3>
+        <p>
+            Al click sul canvas, le coordinate pixel sono convertite in NDC e la direzione del raggio
+            è costruita dai vettori locali della camera senza invertire la matrice di proiezione:
+        </p>
+        <span class="math">rayDir = normalize(forward + right · ndcX · aspect · tan(fov/2) + up · ndcY · tan(fov/2))</span>
+        <p>
+            Il test di intersezione raggio-sfera è risolto analiticamente. Sostituendo l'equazione
+            parametrica del raggio <code>P(t) = O + t·D</code> nell'equazione della sfera si ottiene
+            un'equazione quadratica in t <a href="#riferimenti">[7]</a>:
+        </p>
+        <span class="math">t² + 2(oc·D)t + (oc·oc − r²) = 0</span>
+        <p>
+            dove <code>oc = O − C</code> è il vettore dall'origine del raggio al centro della sfera.
+            Il discriminante <code>b² − c</code> determina il numero di intersezioni: negativo
+            significa nessuna intersezione, zero significa tangenza, positivo significa attraversamento.
+            La funzione restituisce <code>true</code> se il discriminante è ≥ 0.
+        </p>
+        <p>
+            La bounding sphere di ogni mesh è calcolata dalla sua AABB: il centro è il punto medio
+            tra i corner min e max, il raggio è la metà della dimensione massima tra i tre assi.
+            Questa è ovviamente un'approssimazione, ma risulta sufficiente per il picking interattivo
+            nel caso di questo progetto.
+            <a href="#riferimenti">[8]</a>.
+        </p>
+
+        <p>
+            Il risultato finale è una scena più dettagliata e realistica, grazie al bump mapping e allo specular map:
+
+            <img src="images/screenshot-final.png" style="max-width: 100%; margin-top: 0.5rem;" />
+        </p>
+    </section>
+
+    <!-- 7 -->
+    <section id="riferimenti">
+        <h2>7. Riferimenti</h2>
+        <p>
+            <div id="ref1" class="reference">
+                [1] WebGL 2 Fundamentals, "Instanced Drawing", <a href="https://webgl2fundamentals.org/webgl/lessons/webgl-instanced-drawing.html" target="_blank">https://webgl2fundamentals.org/webgl/lessons/webgl-instanced-drawing.html</a>
+            </div>
+            <div id="ref2" class="reference">
+                [2] LearnOpenGL, "Light Casters", <a href="https://learnopengl.com/Lighting/Light-casters" target="_blank">https://learnopengl.com/Lighting/Light-casters</a>
+            </div>
+            <div id="ref3" class="reference">
+                [3] Jordan Steven Stechart, "Lighting Models", <a href="https://www.jordanstevenstechart.com/lighting-models" target="_blank">https://www.jordanstevenstechart.com/lighting-models</a>
+            </div>
+            <div id="ref4" class="reference">
+                [4] Unity Manual, "Wrapped Diffuse", <a href="https://docs.unity.cn/Manual/SL-SurfaceShaderExamples-WrappedDiffuse.html" target="_blank">https://docs.unity.cn/Manual/SL-SurfaceShaderExamples-WrappedDiffuse.html</a>
+            </div>
+            <div id="ref5" class="reference">
+                [5] Stack Overflow, "WebGL optimizing a vertex buffer that changes values every frame", <a href="https://stackoverflow.com/questions/19892022/webgl-optimizing-a-vertex-buffer-that-changes-values-vertex-count-every-frame" target="_blank">https://stackoverflow.com/questions/19892022/</a>
+            </div>
+            <div id="ref6" class="reference">
+                [6] Victor Li, "Raytracing: Ray-Sphere Intersection", <a href="https://viclw17.github.io/2018/07/16/raytracing-ray-sphere-intersection" target="_blank">https://viclw17.github.io/2018/07/16/raytracing-ray-sphere-intersection</a>
+            </div>
+            <div id="ref7" class="reference">
+                [7] Gabriel Gambetta, "Computer Graphics from Scratch — Basic Raytracing", <a href="https://gabrielgambetta.com/computer-graphics-from-scratch/02-basic-raytracing.html" target="_blank">https://gabrielgambetta.com/computer-graphics-from-scratch/02-basic-raytracing.html</a>
+            </div>
+            <div id="ref8" class="reference">
+                [8] GameDev.net, "Bounding Box → Bounding Sphere", <a href="https://gamedev.net/forums/topic/411766-bounding-box---bounding-sphere/" target="_blank">https://gamedev.net/forums/topic/411766-bounding-box---bounding-sphere/</a>
+            </div>
+
         </p>
     </section>
 
