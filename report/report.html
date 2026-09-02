@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="author" content="Francesca Guzzi" />
+    <meta name="author" content="Matteo Di Donato" />
     <title>Relazione di Computer Graphics</title>
 
     <style>
@@ -96,7 +96,7 @@
             margin: 0.5rem 0;
         }
     </style>
-
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 
 <body>
@@ -105,425 +105,293 @@
         <h1>Report Computer Graphics</h1>
         <p class="subtitle">Scena 3D interattiva sviluppata in WebGL 2.0</p>
 
-            <div><span>Autrice:</span> Francesca Guzzi</div>
-            <div><span>Matricola:</span> 0001195122</div>
+            <div>Matteo Di Donato</div>
+            <div><span>Matricola:</span> 0001191866</div>
             <div><span>Docente:</span> Prof. Giulio Casciola</div>
     </header>
 
     <nav id="indice">
         <h2>Indice</h2>
         <ol>
-            <li><a href="#introduzione">Introduzione</a></li>
+            <li><a href="#introduzione">Introduzione e contesto</a></li>
             <li><a href="#architettura">Architettura generale</a></li>
             <li><a href="#pipeline">Pipeline di Rendering e Instanced Drawing</a></li>
-            <li><a href="#shader">Shader GLSL e Modello di Illuminazione</a></li>
-            <li><a href="#moduli">Moduli JavaScript</a></li>
-            <li><a href="#avanzato">Tecniche di Rendering Avanzate</a></li>
+            <li><a href="#shader">Shader e Illuminazione</a></li>
+            <li><a href="#animazioni">Macchine a Stati e Animazioni Procedurali</a></li>
+            <li><a href="#interazione">Interazione e Raycasting</a></li>
+            <li><a href="#telecamera">Telecamera e Input Multi-piattaforma</a></li>
             <li><a href="#riferimenti">Riferimenti</a></li>
         </ol>
     </nav>
 
     <!-- 1 -->
     <section id="introduzione">
-        <h2>1. Introduzione</h2>
-        <p>
-            "Soup in the Woods" è un'applicazione interattiva 3D sviluppata interamente in WebGL 2.0. La scena raffigura una 
-            foresta notturna illuminata da un fuoco da campeggio, in cui l'utente può esplorare l'ambiente, raccogliere dei 
-            funghi ed utilizzarli per servire della zuppa a dei topolini disposti intorno al fuoco. 
+        <h2>1. Introduzione e contesto</h2>
+        <img src="images/welcome.png" style="max-width: 100%; margin-top: 0.5rem;" />
+        <p>Questo progetto illustra la progettazione e lo sviluppo di una scena 3D interattiva interamente basata su <strong>WebGL 2.0</strong>. 
+            L'obiettivo è la navigazione ed esplorazione in tempo reale di un borgo medievale, supportata da un motore di rendering custom 
+            che implementa illuminazione dinamica (Lambertiana e attenuazione quadratica), materiali testurizzati e disegno istanziato (Instanced Drawing) 
+            per garantire fluidità a 60 FPS.</p>
 
-            <img src="images/screenshot-completo.png" style="max-width: 100%; margin-top: 0.5rem;" />
-        </p>
-        <p>
-            Per realizzare la scena, dapprima ideata e progettata in Blender, è stato necessario gestire in maniera
-            efficiente molte istanze dello stesso modello: alberi, cespugli e funghi sono presenti in decine di copie
-            con posizioni diverse, e disegnarli con draw call separate avrebbe comportato un overhead eccessivo.
-            Si è quindi scelto di usare l'<strong>instanced rendering</strong> di WebGL 2.0 (<code>gl.drawArraysInstanced</code>), che 
-            permette di inviare alla GPU un unico VAO con una matrice di trasformazione per ogni istanza, riducendo le
-            draw call a una per ogni materiale indipendentemente dal numero di istanze <a href="#riferimenti">[1]</a>. 
-        </p>
-        <p>
-            Inoltre, per ottenere un'<strong>illuminazione realistica del fuoco</strong> (luce puntiforme), è stata implementata una tecnica di attenuazione 
-            quadratica <a href="#riferimenti">[2]</a> ed un termine di diffuse modificato (<em>wrapped Lambert</em>) che ammorbidisce le ombre e simula 
-            l'effetto di <em>subsurface scattering</em> tipica della luce del fuoco aggiungendo un parametro <code>wrap</code> per distribuire il contributo diffusivo 
-            anche sulle superfici parzialmente in ombra <a href="#riferimenti">[3]</a><a href="#riferimenti">[4]</a>. Questa tecnica, seppur approssimativa, 
-            ha permesso di ottenere un risultato visivamente più realistico, in combinazione con l'animazione del crepitio delle fiamme e con la variazione 
-            dell'intensità luminosa. 
-        </p>
-        <p>
-            Il modello di illuminazione Phong è stato esteso con un secondo contributo diffusivo e speculare per la <strong>luce direzionale della luna</strong>, che illumina la scena 
-            in modo più uniforme e freddo, creando un contrasto con il calore del fuoco. 
-            Per aumentare ulteriormente il realismo dei materiali, sono state utilizzate texture diffuse, <em>specular map</em> e <strong>bump map</strong>, che permettono di simulare dettagli 
-            superficiali senza aumentare la complessità geometrica. 
-            Il bump mapping si può notare particolarmente sul legno (sia sui tronchi degli alberi che sui rami in prossimità del focolare), sul terreno e sul pentolone, 
-            mentre le specular map aggiungono riflessi più realistici su tutti gli oggetti in prossimità del fuoco (pentola, rocce, rami). Si è optato per l'utilizzo 
-            delle specular map poichè molte erano già presenti nel modello 3D scaricato dalla repository (SketchFab).
-            
-            Per il rendering delle foglie degli alberi e dei cespugli, invece, sono state utilizzate delle 
-            geometrie piatte con texture trasparenti, disegnate con blending (<strong>alpha clipping</strong>) e senza culling delle facce, per garantire la visibilità da entrambi i lati.
-        </p>
-        <p>
-            L'interazione utente è gestita tramite un sistema di <strong>ray casting</strong> che permette di selezionare i funghi con il mouse (o tramite touch) e raccoglierli in un inventario, 
-            da cui possono essere poi serviti ai topolini. Il ray casting è implementato calcolando l'intersezione tra il raggio generato dalla posizione del click, costruito 
-            direttamente a partire dai vettori locali della camera, e le bounding sphere di ogni istanza interattiva <a href="#riferimenti">[6]</a><a href="#riferimenti">[7]</a>.
-        </p>
+        <p>Per conferire dinamismo all'ambiente, la scena fa da sfondo ad un gioco ispirato al folklore abruzzese: 
+            la ricerca del <strong>Mazzmarill</strong>. 
+            Nella tradizione popolare dell'Abruzzo (ma anche in altre zone del sud Italia), il Mazzmarill (o Mazzamurello) è un dispettoso folletto, 
+            noto per la sua natura elusiva, per i rumori improvvisi che genera e per la sua abitudine di nascondersi e burlarsi dei viandanti. 
+            Trasponendo questo mito all'interno dello spazio virtuale, è stato sviluppato un minigioco di esplorazione.</p>
 
-        <p> 
-            Il minigioco consiste quindi nel raccogliere i funghi che crescono casualmente nella foresta e servirli ai topolini, che reagiscono con animazioni di <em>bounce</em> (approvazione), 
-            <em>nod</em> (indifferenza) e <em>shake</em> (rifiuto). Diverse combinazioni di funghi portano a risultati diversi, e il giocatore è invitato a sperimentare per scoprire tutte le reazioni dei topolini.
+        <p>L'utente è invitato a perlustrare i vicoli per scovare il folletto. L'interazione avviene tramite un algoritmo matematico di 
+            <em>Raycasting</em>: calcolando l'intersezione tra il clic dell'utente e lo spazio 3D, il sistema valida la cattura. 
+            Il successo innesca una transizione di stato logico che avvia animazioni procedurali, un feedback audio ambientale 
+            (il ghigno della creatura) e il successivo teletrasporto del modello in un nuovo nascondiglio invisibile, 
+            pescato da una mappa di punti predefiniti.</p>
+
+        <p>A completare l'atmosfera immersiva, il borgo è governato da un orologio interno che regola un ciclo giorno-notte procedurale, 
+            il quale altera progressivamente i colori del cielo e l'inclinazione della luce solare direzionale, innescando l'accensione autonoma 
+            delle luci puntiformi dei lampioni cittadini al calare della notte.</p>
     </section>
 
     <!-- 2 -->
     <section id="architettura">
         <h2>2. Architettura generale</h2>
-        <p>
-            Il progetto è strutturato in moduli JavaScript con responsabilità ben distinte:
-        </p>
-        <pre>index.html         &lt;!-- interfaccia e definizione shader --&gt;
-js/
-  main.js          &lt;!-- loop di rendering e gestione input utente --&gt;
-  scene.js         &lt;!-- contesto WebGL, programmi shader, render --&gt;
-  forest.js        &lt;!-- scena 3D: modelli, funghi, animazioni --&gt;
-  camera.js        &lt;!-- camera orbitale in coordinate sferiche --&gt;
-  light.js         &lt;!-- sorgenti luminose (fuoco, luna) --&gt;
-  game.js          &lt;!-- logica di gioco, ray casting, inventario --&gt;
-  utilities.js     &lt;!-- caricamento OBJ/MTL, texture, VAO, geometria --&gt;
-  ui.js            &lt;!-- interfaccia utente con inventario e dat.GUI --&gt;
-assets/
-  models/          &lt;!-- file .obj e .mtl --&gt;
-  textures/        &lt;!-- diffuse, bump, specular, skybox --&gt;
-lib/               &lt;!-- librerie esterne (gl-matrix, m4, dat.GUI) --&gt;</pre>
+        <p>L'applicazione è strutturata seguendo il paradigma della <em>Separation of Concerns</em> 
+            (Separazione degli Interessi), dividendo nettamente il livello di presentazione visiva, la logica matematica e la gestione 
+            dell'interfaccia 2D. Il sistema si basa su quattro componenti software principali:</p>
 
-        <p>
-            L'inizializzazione è asincrona e gestita in <code>main.js</code>. La funzione
-            <code>main()</code> è un IIFE (<em>Immediately Invoked Function Expression</em>) dichiarata
-            <code>async</code>. Crea prima la <code>Camera</code> e poi la <code>Scene</code>, che a
-            sua volta istanzia la <code>Forest</code> e attende il caricamento di tutti i modelli 3D
-            prima di avviare il loop. Solo dopo che <code>scene.init()</code> si risolve vengono creati
-            <code>UI</code> e <code>Game</code>, e si avvia il loop con <code>requestAnimationFrame</code>.
-        </p>
+        <ul>
+            <li><strong><code>index.html</code> e regole CSS</strong>: Gestiscono la sovrapposizione dell'interfaccia utente (HUD). Sfruttando gli elementi del DOM (sovrapposti in <code>position: absolute</code> rispetto al <code>&lt;canvas&gt;</code> WebGL), permettono l'inserimento di menù contestuali, popup informativi e contatori di punteggio senza gravare sul buffer di rendering 3D.</li>
+            <li><strong><code>app.js</code></strong>: Costituisce il <em>core</em> dell'applicazione. Coordina l'inizializzazione del contesto WebGL, la gestione degli stati delle entità (Bardo e Mazzmarill), l'intercettazione degli input e il Main Game Loop governato dal metodo <code>requestAnimationFrame</code>.</li>
+            <li><strong><code>utilities.js</code></strong>: Un modulo di supporto che incapsula le operazioni a basso livello, come la compilazione degli shader program, l'allocazione dinamica dei buffer (VBO/VAO) e il parsing custom dei file <code>.obj</code> e <code>.mtl</code>, accompagnato dal fetching asincrono delle texture.</li>
+        </ul>
+
+        <p>Il ciclo di vita dell'applicazione prevede una fase di inizializzazione asincrona (tramite costrutti <code>async/await</code>), 
+            durante la quale vengono scaricate in memoria le texture e convertite le topologie dei modelli 3D. In questa fase, per superare i limiti 
+            strutturali di WebGL legati all'assegnazione univoca delle coordinate UV sui vertici condivisi (fenomeno che genera artefatti visivi sulle 
+            texture), gli asset geometrici sono stati preventivamente ottimizzati all'interno dell'editor (Blender), scorporando e triangolando le mesh 
+            per singolo materiale prima dell'esportazione.</p>
+        
+        <p>Solo al termine di tutte le Promise di caricamento il layout 2D di attesa viene nascosto e viene invocata la prima iterazione della 
+            funzione <code>drawScene</code>, dando avvio al rendering continuo della scena.</p>
     </section>
 
     <!-- 3 -->
     <section id="pipeline">
-        <h2>3. Pipeline di rendering e Instanced Drawing</h2>
-        <h3>Struttura del frame</h3>
-        <p>
-            Ad ogni frame vengono calcolate la matrice di proiezione prospettica (FOV 60°, near 0.1, far 200)
-            e la view matrix dalla camera. La sequenza di rendering è: pulizia del framebuffer, disegno della
-            skybox, poi tutti gli oggetti della scena con il programma shader principale.
-        </p>
+        <h2>3. Pipeline di Rendering e Instanced Drawing</h2>
+        <p>Il cuore grafico dell'applicazione si basa su una pipeline di rendering ottimizzata per minimizzare le chiamate di disegno 
+            (<em>draw calls</em>) tra CPU e GPU. Le geometrie estratte dai file <code>.obj</code> vengono parsate e immagazzinate all'interno 
+            di <strong>Vertex Buffer Objects (VBO)</strong>. Questi buffer contengono gli attributi fondamentali di ogni vertice: posizione nello 
+            spazio locale, coordinate di texture (UV map) e normali, raggruppati logicamente tramite <strong>Vertex Array Objects (VAO)</strong> 
+            per un rapido <em>binding</em> in fase di rendering.</p>
 
-        <h3>Instanced rendering</h3>
-        <p>
-            Ogni oggetto non ha una model matrix come uniform: la trasformazione individuale è un attributo
-            per istanza (<code>a_instanceMatrix</code>, location 2–5) letto dal buffer dedicato. Poiché una
-            <code>mat4</code> non può essere passata come singolo attributo GLSL, viene suddivisa in quattro
-            <code>vec4</code> consecutivi; per ciascuno si chiama <code>gl.vertexAttribDivisor(loc, 1)</code>,
-            che istruisce la GPU ad avanzare di una matrice per istanza anziché per vertice <a href="#riferimenti">[1]</a>.
-        </p>
-        <p>
-            Per gli oggetti con animazioni dinamiche (funghi, fuoco, topi), le instance matrix vengono
-            aggiornate ogni frame tramite <code>gl.bufferSubData()</code>, sovrascrivendo solo i dati
-            necessari senza ricreare i VAO <a href="#riferimenti">[2]</a>.
-        </p>
-        <p>
-            Ogni modello è suddiviso in <em>renderable</em>, uno per materiale, poiché WebGL richiede
-            una draw call separata per ogni combinazione di VAO e texture. La draw call finale è:
-        </p>
-        <code style="display:block; margin: 0.5rem 0;">gl.drawArraysInstanced(gl.TRIANGLES, 0, vertexCount, instanceCount)</code>
-        
-        <h3>Preparazione della geometria</h3>
-        <p>
-            <code>meshToGeometry()</code> converte la struttura interna della mesh OBJ in quattro
-            <code>Float32Array</code> piatti: posizioni, UV, normali e tangenti. I file OBJ sono stati
-            esportati da Blender con l'opzione <em>Triangulate Mesh</em>, garantendo che ogni faccia
-            abbia esattamente 3 vertici ed eliminando la necessità di triangolazione a runtime.
-            Per ogni triangolo viene calcolata la tangente algebrica necessaria per il bump mapping.
-        </p>
- 
-        <h3>Skybox</h3>
-        <p>
-            La skybox è disegnata con un quad di 4 vertici in NDC (<code>TRIANGLE_STRIP</code>). Il
-            vertex shader imposta <code>gl_Position = vec4(xy, 1, 1)</code>, posizionando ogni frammento
-            alla profondità massima del frustum; il depth test viene impostato a <code>LEQUAL</code>
-            per evitare che la skybox sovrascriva oggetti già disegnati. Il fragment shader ricostruisce
-            la direzione di campionamento moltiplicando le coordinate NDC per
-            <code>u_viewDirectionProjectionInverse</code> e applicando uno <code>smoothstep</code>
-            all'orizzonte per simulare una sfumatura graduale verso il nero ed evitare che le stelle appaiano a ridosso del terreno.
-        </p>
+        <p>Al fine di garantire prestazioni ottimali e mantenere un framerate stabile, il motore grafico fa un uso estensivo 
+            dell'<strong>Instanced Drawing</strong> (Disegno Istanziato). Questa tecnica si è rivelata fondamentale per la gestione di elementi 
+            ripetuti o dinamici, come le fonti di luce architettoniche (i lampioni), il sistema particellare delle note musicali che orbitano 
+            attorno al bardo e il modello del Mazzmarill.</p>
 
-        <h3>Blending e depth test</h3>
-        <p>
-            Fin dall'inizializzazione, il blending è abilitato con la formula standard
-            <code>SRC_ALPHA, ONE_MINUS_SRC_ALPHA</code> per gestire la trasparenza. Il culling
-            delle facce è disabilitato (<code>gl.disable(CULL_FACE)</code>) per rendere correttamente
-            le foglie degli alberi, che sono geometrie piatte visibili da entrambi i lati.
-        </p>
+        <p>Invece di invocare il comando di disegno sequenzialmente per ogni singola entità, il sistema carica la geometria base del modello 
+            una sola volta nella memoria video (VRAM). Le trasformazioni spaziali specifiche di ogni istanza — traslazione, rotazione e scala — 
+            vengono calcolate dalla CPU, aggregate in matrici 4x4 e serializzate in una struttura dati contigua di tipo <code>Float32Array</code>.</p>
 
-        <p>
-            Il risultato senza illuminazione iniziale è: 
-            <img src="images/screenshot-instances.png" style="max-width: 100%; margin-top: 0.5rem;" />
-        </p>
+        <p>Tale array viene trasmesso a un VBO dedicato alle istanze. Utilizzando l'istruzione <code>gl.vertexAttribDivisor</code>, 
+            il vertex shader viene istruito ad avanzare nella lettura di questo buffer non per ogni vertice elaborato, ma esclusivamente al cambio 
+            di istanza. Il rendering effettivo avviene tramite la chiamata a <code>gl.drawArraysInstanced</code>, che demanda alla GPU la 
+            parallelizzazione del calcolo visivo di tutte le entità in un'unica passata.</p>
 
+        <p>Per la gestione degli oggetti animati, come la fluttuazione sinusoidale delle note o il teletrasporto del Mazzmarill, l'array delle 
+            matrici viene ricalcolato nel Main Loop e re-inviato al buffer della scheda video frame-by-frame, sfruttando il flag 
+            <code>gl.DYNAMIC_DRAW</code> per segnalare a WebGL l'elevata frequenza di aggiornamento dei dati e ottimizzare l'allocazione 
+            della memoria.</p>
     </section>
 
     <!-- 4 -->
     <section id="shader">
-        <h2>4. Shader GLSL e Modello di Illuminazione</h2>
+        <h2>4. Shader e Illuminazione</h2>
+        <p>L'impatto visivo e l'atmosfera del borgo sono definiti da un modello di illuminazione ibrido, calcolato interamente a livello di 
+            frammento (Per-Pixel Lighting) per massimizzare la precisione cromatica e la definizione dei volumi. Gli shader program, 
+            scritti in linguaggio GLSL, sono suddivisi in base alle responsabilità: il Vertex Shader si occupa del calcolo spaziale e della 
+            proiezione, mentre il Fragment Shader risolve l'equazione di illuminazione finale.</p>
 
-        <h3>Wrapped Lambert per la luce del fuoco</h3>
-        <p>
-            Il modello Lambertiano standard calcola il contributo diffusivo come <code>max(N·L, 0)</code>, producendo una 
-            distinzione netta tra luce e ombra, con superfici completamente nere sul lato non illuminato. 
-            Per simulare la luce diffusa di un fuoco in un ambiente notturno, si adotta un'approssimazione del modello <em>Wrapped Lambert</em>
-            <a href="#riferimenti">[3]</a><a href="#riferimenti">[4]</a>:
-        </p>
-        <span class="math">diffuse = max(N·L, 0) * wrap + (1 - wrap)</span>
-        <p>
-            Il parametro <em>wrap</em> ∈ [0, 1] controlla quanta luce "avvolge" le superfici in ombra:
-            per <em>wrap</em> = 0 si riduce al Lambertiano classico; per <em>wrap</em> = 1 la luce
-            raggiunge anche le superfici completamente in ombra. Questa formulazione può essere
-            interpretata come un'interpolazione lineare tra illuminazione costante e Lambertiano
-            standard, ed è un'approssimazione pratica dello scattering della luce nell'aria circostante <a href="#riferimenti">[4]</a>.
-        </p>
-        <p>
-            L'attenuazione della luce puntiforme segue una legge quadratica <a href="#riferimenti">[2]</a>:
-        </p>
-        <span class="math">brightness = intensity / (kc + k1 * dist + kq * dist²)</span> 
-        <p>
-            Con kc = 1, k1 = 0, kq = 0.08. La componente speculare usa il modello Blinn-Phong con vettore halfway
-            <code>H = normalize(L + V)</code>.
-        </p>
+        <h3>Il Modello di Illuminazione (Lambert)</h3>
+        <p>Il calcolo base della luce implementa la riflessione diffusa secondo il modello di Lambert. Il Fragment Shader esegue il prodotto 
+            scalare tra il vettore normale della superficie (interpolato per ogni frammento) e il vettore direzione della 
+            sorgente luminosa principale, che funge da sole o luna a seconda della fase temporale. Questa operazione matematica assicura che 
+            i poligoni esposti frontalmente alla luce risultino illuminati al massimo, sfumando gradualmente nei toni dell'ombra geometrica 
+            laddove le normali risultino perpendicolari o opposte ai raggi.</p>
 
-        <h3>Luna (luce direzionale)</h3>
-        <p>
-            La luna è una luce direzionale con intensità fissa 0.3 e colore blu-grigio freddo,
-            usata come termine ambientale notturno. Contribuisce sia al diffuse che allo speculare.
-            Se è abilitata una specular map (<code>u_useSpecularMap</code>), il campione della texture
-            moltiplica il contributo speculare, modulando la lucentezza per area di superficie.
-        </p>
+        <h3>Luci Puntiformi (Point Lights) e Attenuazione</h3>
+        <p>Per arricchire la scena e fornire profondità ai vicoli in assenza di luce solare, sono stati implementati molteplici lampioni 
+            come sorgenti di luce puntiforme. A differenza della luce direzionale, l'energia di queste fonti decade progressivamente 
+            all'aumentare della distanza. Per garantire un comportamento fisicamente accurato della luce sulle facciate degli edifici, 
+            il Fragment Shader applica una funzione di attenuazione quadratica, calcolata come l'inverso di un polinomio di secondo grado. 
+            Questo assicura un decadimento della luce non lineare ma realistico, che si fonde in maniera morbida con l'ambiente circostante.</p>
 
-        <p>
-            Con l'illuminazione completa, il risultato è:
+        <p>Il seguente estratto in GLSL illustra l'algoritmo di attenuazione quadratica adottato per le luci puntiformi:</p>
+        <pre><code>// Decadimento quadratico della luce puntiforme (Fragment Shader)
+            float distance = length(u_lightPosition - v_surfacePosition);
+            float attenuation = 1.0 / (u_constant + u_linear * distance + u_quadratic * (distance * distance));
+            vec3 pointLightColor = u_lightColor * attenuation;
+        </code></pre>
 
-            <img src="images/screenshot-light.png" style="max-width: 100%; margin-top: 0.5rem;" />
-        </p>
+        <h3>Ciclo Giorno-Notte Dinamico</h3>
+        <p>L'applicazione dispone di un ciclo temporale procedurale che simula il transito tra il giorno e la notte. 
+            Sfruttando un timer aggiornato costantemente tramite il Main Loop di JavaScript e iniettato come variabile <code>uniform</code>, 
+            la funzione nativa GLSL <code>mix()</code> esegue un'interpolazione lineare (LERP) su molteplici valori: il colore del cielo 
+            (impostato dinamicamente via <code>gl.clearColor</code>) e l'intensità della luce direzionale. 
+            Con il diminuire della luce ambientale serale, la logica JavaScript innesca i valori di intensità delle luci puntiformi, 
+            attivando i lampioni del borgo in modo sincronizzato.</p>
+        <p>Giorno:</p>
+        <img src="images/scene_day.png" style="max-width: 100%; margin-top: 0.5rem;" />
+        <p>Notte:</p>
+        <img src="images/scene_night.png" style="max-width: 100%; margin-top: 0.5rem;" />
     </section>
 
     <!-- 5 -->
-    <section id="moduli">
-        <h2>5. Moduli JavaScript</h2>
+    <section id="animazioni">
+        <h2>5. Macchine a Stati e Animazioni Procedurali</h2>
+        <p>Poiché i modelli 3D importati nella scena (formato <code>.obj</code>) sono geometrie statiche prive di un'armatura interna (<em>rigging</em> e <em>skinning</em>), le animazioni non sono basate su fotogrammi chiave precalcolati, ma vengono generate dinamicamente a runtime. Questo approccio, noto come <strong>animazione procedurale</strong>, sfrutta funzioni matematiche continue per aggiornare le matrici di trasformazione (Model Matrix) di ciascuna entità frame dopo frame.</p>
 
-        <h3>utilities.js: caricamento risorse e preparazione geometria</h3>
-        <p>
-            È il modulo più denso del progetto: contiene tutte le funzioni di caricamento asincrono,
-            conversione della geometria e setup dei buffer GPU.
-        </p>
-        <p>
-            <code>loadOBJModel()</code> è la funzione principale di caricamento: legge il file OBJ
-            tramite la libreria <code>mesh_utils.js</code>, poi il file MTL associato, e costruisce
-            per ogni materiale un oggetto <em>renderable</em> contenente geometria, texture e proprietà
-            del materiale. 
-        </p>
-        <p>
-            <code>meshToGeometry()</code> converte la struttura interna della mesh OBJ in array piatti
-            (<code>Float32Array</code>) pronti per la GPU. 
-            Per ogni triangolo calcola anche la tangente nel tangent space, necessaria per il bump
-            mapping: la tangente è ricavata algebricamente dagli edge del triangolo e dalle differenze
-            UV, risolvendo il sistema <code>[T, B] = [e1, e2] * inv([dU, dV])</code>.
-        </p>
-        <p>
-            <code>loadTexture()</code> gestisce il caricamento asincrono delle texture con una cache
-            globale (<code>Map</code>) che evita di ricaricare la stessa immagine più volte. Crea
-            immediatamente una texture placeholder bianca 1×1 poi sostituisce i dati una volta che 
-            l'immagine è caricata. Se le dimensioni sono potenza di 2, genera automaticamente i mipmap con
-            <code>generateMipmap()</code>; altrimenti imposta il wrapping a <code>CLAMP_TO_EDGE</code>
-            e il filtro a <code>LINEAR</code>.
-        </p>
-        <p>
-            <code>loadCubemap()</code> carica la cubemap della skybox: la stessa immagine è usata
-            per tutte e sei le facce, dato che in questo progetto l'immagine del cielo è simmetrica.
-        </p>
-        <p>
-            <code>computeBoundingSphere()</code> calcola la bounding sphere di una mesh iterando su
-            tutti i vertici e trovando il bounding box axis-aligned; il centro è il punto medio del
-            bounding box e il raggio è la metà della dimensione massima tra i tre assi. Questa
-            approssimazione è usata per il ray casting dei funghi e del focolare <a href="#riferimenti">[8]</a>.
-        </p>
-        <p>
-            <code>raySphereIntersect()</code> implementa il test raggio-sfera analitico: dati origine
-            e direzione del raggio e la sfera in world space (centro trasformato dalla model matrix,
-            raggio scalato dalla norma della prima colonna della matrice), risolve l'equazione quadratica
-            e restituisce true se il discriminante è non negativo <a href="#riferimenti">[6]</a><a href="#riferimenti">[7]</a>.
-        </p>
+        <h3>Macchina a Stati Finiti (FSM)</h3>
+        <p>Per gestire in modo pulito il comportamento interattivo del Mazzmarill, l'architettura software implementa il pattern della <em>Macchina a Stati Finiti</em>. Ogni istanza del folletto possiede un oggetto JavaScript dedicato che traccia le sue coordinate spaziali di base e il suo stato logico corrente (<code>'IDLE'</code> per l'attesa di default e <code>'CAUGHT'</code> quando viene intercettato dall'utente). Le transizioni di stato fungono da <em>trigger</em> per sbloccare i calcoli dell'animazione e per la temporizzazione degli eventi successivi, come il riposizionamento strategico.</p>
 
-        <h3>scene.js : contesto WebGL e loop di rendering</h3>
-        <p>
-            <code>Scene</code> è la classe centrale dell'applicazione. Il costruttore ottiene il
-            contesto WebGL 2 dal canvas e inizializza a null tutte le risorse GPU (program, VAO,
-            uniform locations). Il metodo <code>init()</code> è asincrono: compila i due programmi
-            shader tramite <code>webglUtils.createProgramFromScripts()</code>, legge le location
-            di tutti gli attributi e delle uniform una sola volta (per evitare lookup ad ogni frame)
-            e delega alla <code>Forest</code> il caricamento dei modelli.
-        </p>
-        <p>
-            Il metodo <code>render()</code> è chiamato ad ogni frame. Calcola le matrici, disegna
-            prima la skybox con il suo programma dedicato, poi reimposta il depth function e
-            attiva il programma principale. Prima di delegare il rendering alla foresta, imposta
-            le uniform delle sorgenti luminose: posizione, colore e intensità del fuoco, direzione
-            e colore della luna, posizione della camera (necessaria per i calcoli speculari).
-            Espone anche metodi di toggle che fungono da interfaccia tra l'UI e la logica interna 
-            della <code>Forest</code>.
-        </p>
+        <h3>Modellazione Matematica del Movimento</h3>
+        <p>Quando lo stato del folletto passa a <code>'CAUGHT'</code>, il motore grafico applica una trasformazione basata sullo scorrere del tempo per simulare una reazione fisica, nello specifico un salto con avvitamento. Sfruttando la funzione trigonometrica del seno (<code>Math.sin</code>) calcolata in valore assoluto, si ottiene un realistico effetto di "rimbalzo" lungo l'asse verticale (Y). Parallelamente, un approccio simile è impiegato per animare il sistema particellare delle note musicali emesse dal bardo: funzioni sfalsate di seno e coseno permettono alle mesh delle note di fluttuare seguendo traiettorie a spirale in continua ascensione attorno alla posizione del musicista.</p>
 
-        <h3>forest.js: gestione della scena 3D</h3>
-        <p>
-            <code>Forest</code> gestisce tutti gli oggetti della scena: terreno, alberi, rocce,
-            cespugli, il fuoco da campo, i topi e i funghi. Il metodo <code>init()</code> carica
-            in sequenza tutti i modelli OBJ, costruisce le matrici di trasformazione per ogni
-            istanza e chiama <code>buildModel()</code> per preparare i VAO.
-        </p>
-        <p>
-            I funghi vengono <em>generati</em> in posizioni casuali entro un raggio di 5–10 unità dal centro con orientamento Y casuale, 
-            con un massimo di 6 istanze attive alla volta (<code>MAX_MUSHROOMS</code>). Quando il numero di funghi attivi scende sotto la 
-            soglia <code>RESPAWN_THRESHOLD</code> nuovi funghi vengono aggiunti senza ricreare i VAO. Le istanze non usate vengono
-            nascoste impostando la loro instance matrix a scala zero ed il buffer GPU è aggiornato con
-            <code>gl.bufferSubData()</code> senza ricreare il VAO. 
-        </p>
-            Le animazioni dei topi sono parametrizzate su un progresso normalizzato [0,1] con durata
-            800 ms: <em>bounce</em> usa <code>|sin(t·π)|</code> per due salti consecutivi; <em>nod</em>
-            usa <code>sin(2t·π)</code> per un'oscillazione sull'asse Y; <em>shake</em> usa
-            <code>sin(4t·π)·(1−progress)</code> con smorzamento verso la fine. L'animazione del fuoco
-            usa una funzione composita con seni a frequenze irrazionali per simulare il crepitio
-            irregolare della fiamma; la scala influenza proporzionalmente l'intensità della luce
-            puntiforme in <code>Light</code>.
-        </p>
+        <!-- Snippet di codice del salto del Mazzmarill -->
+        <p>Di seguito si riporta l'algoritmo impiegato all'interno del Main Loop per l'animazione procedurale del salto del Mazzmarill, con successiva gestione del rilocamento del modello da un array di nascondigli predefiniti:</p>
+        <pre><code>// Logica di animazione procedurale per la fuga del Mazzmarill
+        if (mazz.state === 'CAUGHT') {
+            mazz.animTimer += 0.05; 
 
+            // Calcolo del rimbalzo sull'asse Y tramite funzione sinusoidale assoluta
+            let jumpHeight = Math.abs(Math.sin(mazz.animTimer * Math.PI)) * 1.5;
 
-        <h3>camera.js: camera orbitale in coordinate sferiche</h3>
-        <p>
-            La camera è orbitale attorno a un punto fisso (<code>target</code>) ed è espressa in
-            coordinate sferiche con angolo θ (rotazione orizzontale) e angolo φ (rotazione verticale).
-            <code>orbit()</code> aggiorna i due angoli con sensibilità 0.01 rad per pixel; φ è limitato
-            superiormente a <code>acos((groundY − target.y) / distance)</code> per non passare sotto
-            il terreno, e inferiormente a 0.1 rad per evitare il flip. Lo zoom sposta la camera lungo
-            il vettore <code>forward</code> con limiti [2, 25]. I vettori locali (<code>forward</code>,
-            <code>right</code>, <code>up</code>) sono ricalcolati per prodotto vettoriale ad ogni frame
-            e usati da <code>Game</code> per costruire il raggio di picking.
-        </p>
+            // Applicazione della traslazione e di una rotazione sull'asse Y (effetto trottola)
+            let mat = m4.translation(mazz.basePosition[0], mazz.basePosition[1] + jumpHeight, mazz.basePosition[2]);
+            mat = m4.yRotate(mat, mazz.animTimer * 10.0);
+            
+            // Scalatura dell'istanza e salvataggio della matrice
+            mazz.matrix = m4.scale(mat, 0.4, 0.4, 0.4);
 
-        <h3>light.js: sorgenti luminose</h3>
-        <p>
-            Il modulo espone un singleton (<code>window.Light</code>) costruito con il pattern IIFE.
-            Definisce due oggetti luminosi: il fuoco, luce puntiforme in posizione centrale
-            con colore arancione caldo e intensità base 5.0; e la luna,
-            luce direzionale con colore blu-grigio freddo e intensità 0.3.
-            L'unica funzione di modifica esposta è <code>setFireIntensity()</code>, chiamata ogni
-            frame da <code>main.js</code> in sincronia con l'animazione della scala del fuoco.
-        </p>
+            // Al termine del ciclo di salti (2 secondi), reset e teletrasporto mirato
+            if (mazz.animTimer > 2.0) {
+                // Estrazione di una nuova coordinata dall'array "nascondigli" (Level Design)
+                const randomIndex = Math.floor(Math.random() * nascondigli.length);
+                const nuovoSpot = nascondigli[randomIndex];
 
-        <h3>game.js: logica di gioco e ray casting</h3>
-        <p>
-            <code>Game</code> gestisce l'interazione utente: intercetta i click sul canvas, converte
-            le coordinate schermo in un raggio 3D e verifica se il raggio colpisce un fungo o il fuoco.
-        </p>
-        <p>
-            <code>getRayFromScreen()</code> costruisce il raggio di picking dai vettori locali della
-            camera, senza invertire la matrice di proiezione. Il punteggio della zuppa è definito da
-            due strutture statiche: <code>SOUP_PREFERENCES</code> assegna un valore a ogni tipo di
-            fungo (rosso −2, viola +1, marrone +2); <code>COMBO_BONUSES</code> aggiunge punti per
-            combinazioni specifiche nell'inventario. Il punteggio totale determina la reazione dei
-            topi: <em>bounce</em> per punteggio ≥ 3, <em>nod</em> per 3 > punteggio ≥ 0, <em>shake</em>
-            altrimenti.
-        </p>
-
-        <h3>main.js: loop di rendering e gestione input</h3>
-        <p>
-            Il loop di rendering è avviato con <code>requestAnimationFrame</code> e ad ogni iterazione
-            aggiorna le animazioni con il <code>deltaTime</code> calcolato dalla differenza di timestamp
-            tra frame, ricalcola la scala e l'intensità del fuoco, poi chiama <code>scene.render()</code>.
-        </p>
-        <p>
-            La gestione dell'input distingue click da drag: se la distanza percorsa al mouseup è
-            inferiore a 5 pixel il gesto è un click e viene inoltrato a <code>Game</code>; altrimenti
-            è una rotazione della camera. Per gli eventi touch è gestito anche il pinch-to-zoom: la
-            distanza tra le due dita è usata come delta di zoom.
-        </p>
-
+                // Riassegnazione coordinate e rotazione base
+                mazz.basePosition = [nuovoSpot.pos[0], nuovoSpot.pos[1], nuovoSpot.pos[2]];
+                
+                let resetMat = m4.translation(mazz.basePosition[0], mazz.basePosition[1], mazz.basePosition[2]);
+                resetMat = m4.yRotate(resetMat, nuovoSpot.rotazione);
+                mazz.matrix = m4.scale(resetMat, 0.4, 0.4, 0.4);
+                
+                // Reset della macchina a stati per consentire una nuova cattura
+                mazz.state = 'IDLE';
+                mazz.animTimer = 0.0;
+            }
+        }
+        </code></pre>
     </section>
 
     <!-- 6 -->
-    <section id="avanzato">
-        <h2>6. Tecniche di Rendering Avanzate</h2>
+    <section id="interazione">
+        <h2>6. Interazione e Raycasting</h2>
+        <p>Nei sistemi 3D interattivi, la selezione degli oggetti tramite il cursore del mouse (<em>picking</em>) richiede una conversione complessa, poiché l'input avviene in uno spazio bidimensionale (lo schermo), mentre le entità risiedono in uno spazio tridimensionale (il mondo virtuale). Per catturare il Mazzmarill e attivare il Bardo, l'applicazione implementa un motore custom di <strong>Raycasting</strong> spaziale.</p>
 
-        <h3>Bump Mapping con Heightmap</h3>
-        <p>
-            Il bump mapping è implementato nel fragment shader a partire da una heightmap in scala di
-            grigi. Il gradiente è approssimato con differenze finite: si campionano i valori della
-            heightmap al punto UV corrente (<code>bm0</code>), a un pixel verso destra (<code>bmR</code>)
-            e verso l'alto (<code>bmU</code>). Il vettore di perturbazione della normale è:
-        </p>
-        <span class="math">bumpVec = (bmR − bm0) · T + (bmU − bm0) · B</span>
-        <p>
-            dove T è la tangente e B = cross(N, T) la bitangente. La tangente è riortogonalizzata
-            via Gram-Schmidt nello shader (<code>T = normalize(T − dot(T,N)·N)</code>) per compensare
-            eventuali imprecisioni dell'interpolazione. La normale perturbata è:
-        </p>
-        <span class="math">N' = normalize(N + bumpVec · strength)</span>
-        <p>
-            con <em>strength</em> = 3.5 di default, regolabile dall'utente tramite UI dedicata. Le tangenti in world space
-            sono precalcolate in <code>meshToGeometry()</code> risolvendo per ogni triangolo il sistema:
-        </p>
-        <span class="math">[T, B] = [e1, e2] · inv([ΔU, ΔV])</span>
-        <p>
-            dove e1, e2 sono gli edge 3D del triangolo e ΔU, ΔV le differenze nelle coordinate UV.
-        </p>
+        <h3>Dallo Schermo al Mondo 3D</h3>
+        <p>L'algoritmo esegue una de-proiezione matematica del clic dell'utente. Inizialmente, le coordinate in pixel del mouse vengono mappate nel sistema di Coordinate di Dispositivo Normalizzate (NDC), scalando i valori nel range <code>[-1.0, 1.0]</code>:</p>
+        
+        <div class="math">
+        $$x_{ndc} = \left( \frac{2 \cdot x_{mouse}}{width} \right) - 1$$
+        <br>
+        $$y_{ndc} = 1 - \left( \frac{2 \cdot y_{mouse}}{height} \right)$$
+        </div>
 
-        <h3>Alpha Clipping per le foglie</h3>
-        <p>
-            Le foglie sono mesh piatte con texture semi-trasparente. Per evitare gli artefatti di
-            ordinamento del blending, ogni frammento con <code>alpha &lt; 0.9</code> viene scartato
-            con <code>discard</code>; il blending è contestualmente disabilitato lato CPU. Il materiale
-            su cui applicare l'alpha clipping è identificato automaticamente verificando che il nome
-            nel file MTL contenga la stringa <code>"leave"</code>.
-        </p>
- 
-        <h3>Ray Casting per l'interazione</h3>
-        <p>
-            Al click sul canvas, le coordinate pixel sono convertite in NDC e la direzione del raggio
-            è costruita dai vettori locali della camera senza invertire la matrice di proiezione:
-        </p>
-        <span class="math">rayDir = normalize(forward + right · ndcX · aspect · tan(fov/2) + up · ndcY · tan(fov/2))</span>
-        <p>
-            Il test di intersezione raggio-sfera è risolto analiticamente. Sostituendo l'equazione
-            parametrica del raggio <code>P(t) = O + t·D</code> nell'equazione della sfera si ottiene
-            un'equazione quadratica in t <a href="#riferimenti">[7]</a>:
-        </p>
-        <span class="math">t² + 2(oc·D)t + (oc·oc − r²) = 0</span>
-        <p>
-            dove <code>oc = O − C</code> è il vettore dall'origine del raggio al centro della sfera.
-            Il discriminante <code>b² − c</code> determina il numero di intersezioni: negativo
-            significa nessuna intersezione, zero significa tangenza, positivo significa attraversamento.
-            La funzione restituisce <code>true</code> se il discriminante è ≥ 0.
-        </p>
-        <p>
-            La bounding sphere di ogni mesh è calcolata dalla sua AABB: il centro è il punto medio
-            tra i corner min e max, il raggio è la metà della dimensione massima tra i tre assi.
-            Questa è ovviamente un'approssimazione, ma risulta sufficiente per il picking interattivo
-            nel caso di questo progetto.
-            <a href="#riferimenti">[8]</a>.
-        </p>
+        <p>Successivamente, questo punto 2D viene espresso come un vettore a quattro componenti e proiettato all'indietro moltiplicandolo per la matrice inversa di proiezione $$M_{proj}^{-1}$$ per ottenere le coordinate nello spazio della telecamera (Eye Space). Infine, si annulla la componente di traslazione (w = 0), si moltiplica per la matrice inversa di vista $$M_{view}^{-1}$$ e si normalizza il vettore per ricavare la direzione pura del raggio d nel World Space:</p>
 
-        <p>
-            Il risultato finale è una scena più dettagliata e realistica, grazie al bump mapping e allo specular map:
+        <div class="math">
+        $$\vec{v}_{eye} = M_{proj}^{-1} \times \begin{bmatrix} x_{ndc} \\ y_{ndc} \\ -1 \\ 1 \end{bmatrix}$$
+        <br>
+        $$\vec{v}_{world} = M_{view}^{-1} \times \begin{bmatrix} x_{eye} \\ y_{eye} \\ -1 \\ 0 \end{bmatrix}$$
+        <br>
+        $$\vec{d} = \frac{\vec{v}_{world}}{\| \vec{v}_{world} \|}$$
+        </div>
 
-            <img src="images/screenshot-final.png" style="max-width: 100%; margin-top: 0.5rem;" />
-        </p>
+        <p>Di seguito è riportato il frammento di codice che implementa questa pipeline matematica di trasformazione vettoriale:</p>
+        <pre><code>// 1. Calcolo Coordinate NDC dal clic del mouse
+        const clipX = (mouseX / gl.canvas.clientWidth) * 2.0 - 1.0;
+        const clipY = 1.0 - (mouseY / gl.canvas.clientHeight) * 2.0;
+        const clipCoords = [clipX, clipY, -1.0, 1.0];
+
+        // 2. Trasformazione in Eye Space tramite Inversa della Proiezione
+        const invProjection = m4.inverse(projectionMatrix);
+        let eyeCoords = m4.transformVector(invProjection, clipCoords);
+        eyeCoords = [eyeCoords[0], eyeCoords[1], -1.0, 0.0]; 
+
+        // 3. Trasformazione in World Space tramite Inversa View e Normalizzazione
+        const invView = m4.inverse(viewMatrix);
+        let rayWorld = m4.transformVector(invView, eyeCoords);
+        let rayDirection = m4.normalize([rayWorld[0], rayWorld[1], rayWorld[2]]);
+        </code></pre>
+
+        <h3>Rilevamento delle Collisioni (Hitbox)</h3>
+        <p>Una volta calcolata la direzione del raggio d, il sistema verifica se questo interseca il volume di ingombro sferico (<em>hitbox</em>) del bersaglio. Siano c la posizione della telecamera e p il centro del modello 3D, si calcola il vettore che unisce i due punti: $$\vec{v}_{obj} = \vec{p} - \vec{c}$$.</p>
+        
+        <p>Proiettando questo vettore sulla direzione del raggio tramite prodotto scalare, si ottiene la distanza scalare t lungo il raggio:</p>
+
+        <div class="math">
+        $$t = \vec{v}_{obj} \cdot \vec{d}$$
+        </div>
+
+        <p>Se t > 0 (ovvero l'oggetto si trova davanti alla telecamera e non alle sue spalle), si calcola il punto esatto sul raggio più vicino al bersaglio ($$\vec{p}_{closest}$$) e la sua distanza D dal centro dell'oggetto p:</p>
+
+        <div class="math">
+        $$\vec{p}_{closest} = \vec{c} + t\vec{d}$$
+        <br>
+        $$D = \| \vec{p}_{closest} - \vec{p} \|$$
+        </div>
+
+        <p>Se la distanza D risulta inferiore al raggio R della hitbox impostata (D < R), la collisione è validata e l'evento interattivo viene attivato.</p>
+
     </section>
 
+    <section id="telecamera">
+        <h2>7. Telecamera e Input Multi-piattaforma</h2>
+        <p>Al fine di garantire un'esplorazione ottimale dell'ambiente 3D e assecondare sia l'ispezione architettonica globale che la ricerca ravvicinata nei vicoli, il motore di rendering implementa un sistema di telecamera ibrido. L'utente può commutare dinamicamente a runtime tra una visuale in prima persona (Volo Libero/FPS) e una telecamera Orbitale (Arcball).</p>
+
+        <h3>Architettura Ibrida e Calcolo Matriciale</h3>
+        <p>La transizione tra le due modalità non comporta la distruzione degli oggetti o il ricaricamento della scena, ma consiste in uno <em>switch</em> algoritmico per il calcolo della matrice di vista (<code>viewMatrix</code>). Nella modalità <strong>Orbitale</strong>, la posizione della telecamera viene ricavata convertendo le coordinate sferiche (raggio, imbardata, beccheggio) in coordinate cartesiane rispetto a un punto fisso (il centro della piazza). Nella modalità a <strong>Volo Libero</strong>, lo spostamento avviene calcolando i vettori direzionali <em>Forward</em> e <em>Right</em> basati sugli angoli di Eulero correnti, sommandoli alla posizione in base agli input da tastiera (WASD).</p>
+
+        <h3>Supporto Mobile e Multi-Touch</h3>
+        <p>Per rendere il progetto pienamente fruibile su smartphone e tablet, il sistema di input è stato esteso oltre i classici eventi del mouse. Tramite le API Touch di HTML5, il canvas intercetta i tocchi sullo schermo disabilitando preventivamente il comportamento di default del browser (come lo scorrimento della pagina) tramite l'istruzione CSS <code>touch-action: none</code>.</p>
+
+        <p>La logica discrimina il numero di punti di contatto attivi: un singolo tocco (<code>e.touches.length === 1</code>) viene tradotto nella rotazione della telecamera o nell'innesco del Raycaster per interagire con i modelli; un doppio tocco simultaneo (<code>e.touches.length === 2</code>) attiva invece il calcolo matematico della distanza euclidea tra le due dita per implementare il <em>Pinch-to-Zoom</em>, andando a scalare il raggio dell'orbita visiva.</p>
+
+        <p>Di seguito si riporta lo stralcio dell'algoritmo di gestione del multi-touch per la modalità orbitale:</p>
+        <pre><code>// Gestione del Pinch-to-Zoom per dispositivi mobili
+        gl.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Inibisce lo scroll nativo del browser
+            
+            if (e.touches.length === 2 && cameraMode === 'ORBITAL') {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const currentDistance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (initialPinchDistance > 0) {
+                    const pinchDelta = initialPinchDistance - currentDistance;
+                    orbitRadius += pinchDelta * 0.05; // Sensibilità dello zoom
+                    
+                    // Clamping per evitare compenetrazioni o allontanamenti eccessivi
+                    if (orbitRadius < 3.0) orbitRadius = 3.0;
+                    if (orbitRadius > 40.0) orbitRadius = 40.0;
+                }
+                initialPinchDistance = currentDistance;
+            }
+        }, { passive: false });
+        </code></pre>
+    </section>
     <!-- 7 -->
-    <section id="riferimenti">
-        <h2>7. Riferimenti</h2>
+   <section id="riferimenti">
+        <h2>8. Riferimenti</h2> <!-- Ho aggiornato il numero a 8 considerando la nuova struttura dei capitoli -->
         <p>
             <div id="ref1" class="reference">
                 [1] WebGL 2 Fundamentals, "Instanced Drawing", <a href="https://webgl2fundamentals.org/webgl/lessons/webgl-instanced-drawing.html" target="_blank">https://webgl2fundamentals.org/webgl/lessons/webgl-instanced-drawing.html</a>
@@ -549,7 +417,15 @@ lib/               &lt;!-- librerie esterne (gl-matrix, m4, dat.GUI) --&gt;</pre
             <div id="ref8" class="reference">
                 [8] GameDev.net, "Bounding Box → Bounding Sphere", <a href="https://gamedev.net/forums/topic/411766-bounding-box---bounding-sphere/" target="_blank">https://gamedev.net/forums/topic/411766-bounding-box---bounding-sphere/</a>
             </div>
-
+            <div id="ref9" class="reference">
+                [9] MDN Web Docs, "Touch events", <a href="https://developer.mozilla.org/en-US/docs/Web/API/Touch_events" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/Touch_events</a>
+            </div>
+            <div id="ref10" class="reference">
+                [10] WebGL Fundamentals, "Cameras", <a href="https://webglfundamentals.org/webgl/lessons/webgl-3d-camera.html" target="_blank">https://webglfundamentals.org/webgl/lessons/webgl-3d-camera.html</a>
+            </div>
+            <div id="ref11" class="reference">
+                [11] WebGL Fundamentals, "Loading .obj", <a href="https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html" target="_blank">https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html</a>
+            </div>
         </p>
     </section>
 
